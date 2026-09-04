@@ -1,0 +1,21 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "florida-tenders-monitor",
+    "title": "Florida Tenders Monitor",
+    "description": "Extracts public procurement solicitations (bids, RFPs, ITBs) from the State of Florida's MyFloridaMarketPlace (MFMP) Vendor Information Portal, with full detail, commodity codes, contact info and direct document links.",
+    "version": "1.0",
+    "buildTag": "latest",
+    "minMemoryMbytes": 256,
+    "maxMemoryMbytes": 512,
+    "meta": {
+        "templateId": "ts-crawlee-cheerio",
+        "generatedBy": "Claude Code with Claude Sonnet 5"
+    },
+    "inputSchema": "./input_schema.json",
+    "outputSchema": "./output_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "dockerfile": "../Dockerfile"
+}

@@ -1,0 +1,34 @@
+{
+    "$schema": "https://apify.com/schemas/v1/input.ide.json",
+    "title": "Florida Tenders Monitor Configuration",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "statuses": {
+            "title": "Statuses to extract",
+            "type": "array",
+            "description": "Which solicitation statuses to fetch. Verified live counts at audit time: OPEN=165, CLOSED=13026, WITHDRAWN=421, PREVIEW=0 (a valid status with no current entries).",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["OPEN", "CLOSED", "WITHDRAWN", "PREVIEW"],
+                "enumTitles": ["Open (accepting responses)", "Closed", "Withdrawn", "Preview"]
+            },
+            "default": ["OPEN"],
+            "minItems": 1
+        },
+        "fetchDetail": {
+            "title": "Fetch full detail per solicitation",
+            "type": "boolean",
+            "description": "When enabled (default), fetches each solicitation's detail page for the full description, commodity codes, response contact and direct document download links. Disable for a faster, listing-only run.",
+            "default": true
+        },
+        "maxItems": {
+            "title": "Max solicitations to extract",
+            "type": "integer",
+            "description": "Hard cap on the number of solicitations returned this run, across all selected statuses.",
+            "default": 100,
+            "minimum": 1
+        }
+    }
+}

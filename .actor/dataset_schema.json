@@ -1,0 +1,53 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "actorSpecification": 1,
+    "title": "Dataset Schema",
+    "fields": {
+        "type": "object",
+        "properties": {
+            "advertisementId": { "title": "Advertisement ID", "type": "number" },
+            "uniqueName": { "title": "Unique Name", "type": "string", "description": "e.g. AD-16672" },
+            "agencyAdNumber": { "title": "Agency Ad Number", "type": ["string", "null"] },
+            "title": { "title": "Title", "type": "string" },
+            "type": { "title": "Type", "type": "string" },
+            "status": { "title": "Status", "type": "string" },
+            "agency": { "title": "Agency", "type": "string" },
+            "openDate": { "title": "Open Date", "type": "string" },
+            "closeDate": { "title": "Close Date", "type": "string" },
+            "publishDate": { "title": "Publish Date", "type": "string" },
+            "description": { "title": "Description", "type": ["string", "null"], "description": "Raw HTML from the source" },
+            "commodityCodes": {
+                "title": "Commodity Codes",
+                "type": "array",
+                "items": { "type": "object", "properties": { "id": { "type": "string" }, "value": { "type": "string" } } }
+            },
+            "documents": {
+                "title": "Documents",
+                "type": "array",
+                "items": { "type": "object", "properties": { "fileName": { "type": "string" }, "downloadUrl": { "type": "string" } } }
+            },
+            "responseContact": { "title": "Response Contact", "type": ["object", "null"] },
+            "detailUrl": { "title": "Detail URL", "type": "string" },
+            "scrapedAt": { "title": "Scraped at", "type": "string" }
+        }
+    },
+    "views": {
+        "overview": {
+            "title": "Overview",
+            "transformation": {
+                "fields": ["uniqueName", "title", "agency", "type", "status", "closeDate"]
+            },
+            "display": {
+                "component": "table",
+                "columns": [
+                    { "label": "ID", "format": "text", "field": "uniqueName" },
+                    { "label": "Title", "format": "text", "field": "title" },
+                    { "label": "Agency", "format": "text", "field": "agency" },
+                    { "label": "Type", "format": "text", "field": "type" },
+                    { "label": "Status", "format": "text", "field": "status" },
+                    { "label": "Closes", "format": "text", "field": "closeDate" }
+                ]
+            }
+        }
+    }
+}
