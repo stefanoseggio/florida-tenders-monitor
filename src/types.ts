@@ -1,9 +1,20 @@
+import type { DateRangePreset } from './dateFilter.js';
+
 export type AdStatus = 'OPEN' | 'CLOSED' | 'WITHDRAWN' | 'PREVIEW';
+
+// Every record this actor produces is a solicitation appearing in the
+// listing - there is no more specific, defensible per-domain signal the way
+// e.g. uk-hse-enforcement-monitor distinguishes SANCTION (a conviction IS an
+// imposed sanction) from NEW_LISTING (a notice), so this actor only ever
+// emits NEW_LISTING. See AGENTS.md "Delta engine" for the reasoning.
+export type EventType = 'NEW_LISTING';
 
 export interface ActorInput {
     statuses: AdStatus[];
     fetchDetail: boolean;
     maxItems: number;
+    onlyNew: boolean;
+    dateRange?: DateRangePreset;
 }
 
 export interface Organization {
@@ -76,6 +87,16 @@ export interface TenderRecord {
     commodityCodes: CommodityCode[];
     documents: { fileName: string; downloadUrl: string }[];
     responseContact: ResponseContact | null;
-    detailUrl: string;
-    scrapedAt: string;
+    // Standardized B2B integration envelope - consistent across this
+    // portfolio's fleet so downstream webhook/Zapier/Make consumers need no
+    // per-actor parser. `detailUrl`/`scrapedAt` (pre-delta-engine field
+    // names) are replaced by `source_url`/`scraped_at` below rather than
+    // kept alongside them - no actor in this portfolio has real paying
+    // customers yet, so there's no backward-compatibility cost to keeping
+    // this clean instead of carrying duplicate fields.
+    record_id: string;
+    event_type: EventType;
+    scraped_at: string;
+    is_new: boolean;
+    source_url: string;
 }

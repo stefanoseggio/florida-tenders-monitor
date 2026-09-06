@@ -29,6 +29,20 @@
             "description": "Hard cap on the number of solicitations returned this run, across all selected statuses.",
             "default": 100,
             "minimum": 1
+        },
+        "onlyNew": {
+            "title": "Delta mode - only new records since last run",
+            "type": "boolean",
+            "description": "When enabled, persists seen advertisementIds between runs (in this actor's own key-value store) and returns only solicitations not seen in a prior run - useful for a daily/hourly recurring monitor. Note: unlike some actors in this portfolio, MyFloridaMarketPlace's listing order is not verified newest-first (live testing found items in neither advertisementId nor publishDate order), so this does NOT short-circuit pagination for speed - it still walks up to maxItems listing items exactly like a normal run, then filters out already-seen records afterward. A run capped tightly by maxItems can therefore return fewer new records than actually exist if unseen ones sit beyond the walked window. Leave off for a full one-off extraction.",
+            "default": false
+        },
+        "dateRange": {
+            "title": "Filter by recency (publishDate)",
+            "type": "string",
+            "description": "Optionally restrict results to solicitations whose own publishDate (when the ad was posted to the portal) falls within this window. Independent of onlyNew.",
+            "editor": "select",
+            "enum": ["24h", "7d", "30d"],
+            "enumTitles": ["Last 24 hours", "Last 7 days", "Last 30 days"]
         }
     }
 }

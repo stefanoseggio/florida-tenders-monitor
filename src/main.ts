@@ -1,6 +1,7 @@
 import { Actor, log } from 'apify';
 
 import { fetchTenders } from './fetchTenders.js';
+import { loadState, saveState } from './state.js';
 import type { ActorInput } from './types.js';
 
 const RESULT_EVENT_NAME = 'result';
@@ -11,19 +12,33 @@ await Actor.exit();
 
 async function run(): Promise<void> {
     const input = (await Actor.getInput<ActorInput>()) ?? ({} as ActorInput);
-    const { statuses = ['OPEN'], fetchDetail = true, maxItems = 100 } = input;
+    const { statuses = ['OPEN'], fetchDetail = true, maxItems = 100, onlyNew = false, dateRange } = input;
+
+    const now = new Date();
+    const state = await loadState();
+    const seenIds = new Set(state.seenIds);
 
     let tenders;
     try {
-        tenders = await fetchTenders(statuses, fetchDetail, maxItems);
+        const { results, allIdsThisRun } = await fetchTenders(
+            statuses,
+            fetchDetail,
+            maxItems,
+            seenIds,
+            onlyNew,
+            dateRange,
+            now,
+        );
+        tenders = results;
+        await saveState(state, allIdsThisRun, now.toISOString());
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         log.error(`Fallo la extraccion: ${message}`);
-        await Actor.pushData({ error: message, scrapedAt: new Date().toISOString() });
+        await Actor.pushData({ error: message, scraped_at: now.toISOString() });
         return;
     }
 
-    log.info(`Total solicitudes extraidas: ${tenders.length}`);
+    log.info(`Total solicitudes extraidas: ${tenders.length} (onlyNew=${onlyNew})`);
 
     let pushed = 0;
     for (const tender of tenders) {

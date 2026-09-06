@@ -15,20 +15,45 @@
             "openDate": { "title": "Open Date", "type": "string" },
             "closeDate": { "title": "Close Date", "type": "string" },
             "publishDate": { "title": "Publish Date", "type": "string" },
-            "description": { "title": "Description", "type": ["string", "null"], "description": "Raw HTML from the source" },
+            "description": {
+                "title": "Description",
+                "type": ["string", "null"],
+                "description": "Raw HTML from the source"
+            },
             "commodityCodes": {
                 "title": "Commodity Codes",
                 "type": "array",
-                "items": { "type": "object", "properties": { "id": { "type": "string" }, "value": { "type": "string" } } }
+                "items": {
+                    "type": "object",
+                    "properties": { "id": { "type": "string" }, "value": { "type": "string" } }
+                }
             },
             "documents": {
                 "title": "Documents",
                 "type": "array",
-                "items": { "type": "object", "properties": { "fileName": { "type": "string" }, "downloadUrl": { "type": "string" } } }
+                "items": {
+                    "type": "object",
+                    "properties": { "fileName": { "type": "string" }, "downloadUrl": { "type": "string" } }
+                }
             },
             "responseContact": { "title": "Response Contact", "type": ["object", "null"] },
-            "detailUrl": { "title": "Detail URL", "type": "string" },
-            "scrapedAt": { "title": "Scraped at", "type": "string" }
+            "record_id": {
+                "title": "Record ID",
+                "type": "string",
+                "description": "advertisementId as a string - stable across runs"
+            },
+            "event_type": {
+                "title": "Event Type",
+                "type": "string",
+                "description": "Always NEW_LISTING - see AGENTS.md"
+            },
+            "scraped_at": { "title": "Scraped at", "type": "string" },
+            "is_new": {
+                "title": "Is New",
+                "type": "boolean",
+                "description": "True if not seen in a prior run (delta mode)"
+            },
+            "source_url": { "title": "Source URL", "type": "string" }
         }
     },
     "views": {
