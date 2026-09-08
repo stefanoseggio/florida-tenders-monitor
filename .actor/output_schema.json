@@ -1,12 +1,52 @@
 {
     "$schema": "https://apify.com/schemas/v1/output.ide.json",
     "actorOutputSchemaVersion": 1,
-    "title": "Output schema",
+    "title": "MyFloridaMarketPlace advertisements output",
     "properties": {
         "results": {
             "type": "string",
-            "title": "Results",
+            "title": "All records (JSON)",
             "template": "{{links.apiDefaultDatasetUrl}}/items"
+        },
+        "resultsNewestFirst": {
+            "type": "string",
+            "title": "All records, newest first (JSON)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?desc=true"
+        },
+        "csv": {
+            "type": "string",
+            "title": "CSV export",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?format=csv&desc=true"
+        },
+        "excel": {
+            "type": "string",
+            "title": "Excel export",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?format=xlsx&desc=true"
+        },
+        "overview": {
+            "type": "string",
+            "title": "Overview view",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview&desc=true"
+        },
+        "bidPipeline": {
+            "type": "string",
+            "title": "Bid pipeline view",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=bidPipeline&desc=true"
+        },
+        "amendments": {
+            "type": "string",
+            "title": "Amendments & status changes view",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=amendments&desc=true"
+        },
+        "awards": {
+            "type": "string",
+            "title": "Awards & single source view",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=awards&desc=true"
+        },
+        "runSummary": {
+            "type": "string",
+            "title": "Run summary (counts, total matching on MFMP, delta store, floors)",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/OUTPUT"
         }
     }
 }

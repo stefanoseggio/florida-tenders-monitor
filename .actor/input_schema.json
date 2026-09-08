@@ -1,13 +1,16 @@
 {
     "$schema": "https://apify.com/schemas/v1/input.ide.json",
-    "title": "Florida Tenders Monitor Configuration",
+    "title": "MyFloridaMarketPlace Bids Scraper & Monitor",
+    "description": "Every filter below is applied by MyFloridaMarketPlace's own search endpoint (server-side) unless stated otherwise. Leave everything empty to walk every OPEN advertisement (about 160 rows, 2 pages).",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "statuses": {
-            "title": "Statuses to extract",
+            "sectionCaption": "Filters",
+            "sectionDescription": "Mirror of the portal's search form. Live counts on 2026-09-07: OPEN 164, CLOSED 13,027, WITHDRAWN 421, PREVIEW 0. Combine freely - e.g. RFPs + ITNs from FDOT closing after a date.",
+            "title": "Statuses",
             "type": "array",
-            "description": "Which solicitation statuses to fetch. Verified live counts at audit time: OPEN=165, CLOSED=13026, WITHDRAWN=421, PREVIEW=0 (a valid status with no current entries).",
+            "description": "Which advertisement statuses to walk. OPEN is small and cheap (2 pages). Add CLOSED to track awards and to receive STATUS_CHANGE events when an open solicitation closes (131 pages, fetched in parallel; only new or changed records cost anything).",
             "editor": "select",
             "items": {
                 "type": "string",
@@ -17,32 +20,164 @@
             "default": ["OPEN"],
             "minItems": 1
         },
-        "fetchDetail": {
-            "title": "Fetch full detail per solicitation",
-            "type": "boolean",
-            "description": "When enabled (default), fetches each solicitation's detail page for the full description, commodity codes, response contact and direct document download links. Disable for a faster, listing-only run.",
-            "default": true
+        "types": {
+            "title": "Advertisement types",
+            "type": "array",
+            "description": "The portal's 10 advertisement types. Select several to get their union. Agency Decision = intent-to-award / award notice (starts the 72-hour protest clock); Single Source = non-competitive purchase notice.",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+                "enumTitles": [
+                    "Agency Decision (intent to award)",
+                    "Grant Opportunities",
+                    "Informational Notice",
+                    "Invitation to Bid (ITB)",
+                    "Invitation to Negotiate (ITN)",
+                    "Request for Proposals (RFP)",
+                    "Public Meeting Notice",
+                    "Request for Information (RFI)",
+                    "Request for Statement of Qualifications (RSQ)",
+                    "Single Source"
+                ]
+            },
+            "default": []
         },
-        "maxItems": {
-            "title": "Max solicitations to extract",
-            "type": "integer",
-            "description": "Hard cap on the number of solicitations returned this run, across all selected statuses.",
-            "default": 100,
-            "minimum": 1
+        "agencyIds": {
+            "title": "Agency IDs (organizationId)",
+            "type": "array",
+            "description": "MFMP organization ids, e.g. 30000021 (FDOT), 30000023 (DCF), 30000029 (AHCA), 30000032 (DMS), 30000026 (DOH), 30000031 (FDLE), 30000018 (DOE), 30000011 (DEP), 30000015 (FDACS), 30000012 (DOC), 30000036 (FWC), 30000039 (DJJ), 30000034 (REV), 30000019 (FSDB), 30000030 (FDC), 30000020 (FDVA), 30000025 (DMA), 30000013 (DLA), 30000033 (DOAH). Every record carries its `organizationId`, so run once without this filter to discover the rest (the portal has no public agency list).",
+            "editor": "stringList",
+            "items": { "type": "string", "pattern": "^\\d{4,12}$" },
+            "default": []
+        },
+        "agencyNameContains": {
+            "title": "Agency name contains",
+            "type": "string",
+            "description": "Case-insensitive substring on the agency name or short name, e.g. 'Transportation' or 'AHCA'. Applied client-side after the listing is read (cheap - the listing is walked in full anyway).",
+            "editor": "textfield"
+        },
+        "titleContains": {
+            "title": "Title contains",
+            "type": "string",
+            "description": "Case-insensitive substring on the advertisement title, e.g. 'software' or 'construction'.",
+            "editor": "textfield"
+        },
+        "commodityCodes": {
+            "title": "UNSPSC commodity codes",
+            "type": "array",
+            "description": "Exact 8-digit UNSPSC codes, e.g. 83112200 (Enhanced telecommunications services), 43230000 (Software). Several codes = union. The portal matches exact codes only - a prefix such as '43' returns nothing.",
+            "editor": "stringList",
+            "items": { "type": "string", "pattern": "^\\d{8}$" },
+            "default": []
+        },
+        "adNumber": {
+            "title": "Advertisement number",
+            "type": "string",
+            "description": "One specific advertisement, e.g. 16672 or AD-16672 (the numeric part is used).",
+            "editor": "textfield",
+            "pattern": "^\\s*([A-Za-z]{2,3}-?)?\\d+\\s*$"
+        },
+        "agencyAdNumberContains": {
+            "title": "Agency advertisement number contains",
+            "type": "string",
+            "description": "Substring on the agency's own reference, e.g. 'DOT-ITB-27' or 'RFP 2526'.",
+            "editor": "textfield"
+        },
+        "dateFrom": {
+            "title": "Published from",
+            "type": "string",
+            "description": "Only advertisements first published on or after this UTC calendar day: absolute (2026-09-01) or relative ('7 days', '3 months' back from today). A one-day window (from = to) is pushed to the portal; wider windows are applied client-side on the listing. Note: amendments keep the original publish date - use delta mode to catch them.",
+            "editor": "datepicker",
+            "dateType": "absoluteOrRelative"
+        },
+        "dateTo": {
+            "title": "Published to",
+            "type": "string",
+            "description": "Upper bound of the publish window (inclusive). Leave empty for 'today'.",
+            "editor": "datepicker",
+            "dateType": "absoluteOrRelative"
+        },
+        "openBefore": {
+            "title": "Opened on or before",
+            "type": "string",
+            "description": "Server-side: only advertisements whose open date is on or before this day (absolute or relative). Useful to skip solicitations that have not started accepting responses yet.",
+            "editor": "datepicker",
+            "dateType": "absoluteOrRelative"
+        },
+        "closesAfter": {
+            "title": "Closes on or after",
+            "type": "string",
+            "description": "Server-side: only advertisements whose close date is on or after this day (absolute, or relative such as '0 days' for 'still open today'). Great for 'give me only what I can still bid on'.",
+            "editor": "datepicker",
+            "dateType": "absoluteOrRelative"
+        },
+        "eventTypes": {
+            "title": "Event types to deliver",
+            "type": "array",
+            "description": "NEW_LISTING = an advertisement never delivered before; UPDATED = a known advertisement whose version counter rose (addendum, Q&A, close-date extension, new document); STATUS_CHANGE = a known advertisement whose status changed (e.g. OPEN -> CLOSED; only visible if that status is in 'Statuses').",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE"],
+                "enumTitles": ["New advertisements", "Amendments to known advertisements", "Status changes"]
+            },
+            "default": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE"]
         },
         "onlyNew": {
-            "title": "Delta mode - only new records since last run",
+            "sectionCaption": "Monitoring (delta mode)",
+            "sectionDescription": "Turn on 'Only new' and put the Actor on a schedule: each run returns only what appeared, was amended or changed status on MyFloridaMarketPlace since the previous run.",
+            "title": "Only new / changed since the last run",
             "type": "boolean",
-            "description": "When enabled, persists seen advertisementIds between runs (in this actor's own key-value store) and returns only solicitations not seen in a prior run - useful for a daily/hourly recurring monitor. Note: unlike some actors in this portfolio, MyFloridaMarketPlace's listing order is not verified newest-first (live testing found items in neither advertisementId nor publishDate order), so this does NOT short-circuit pagination for speed - it still walks up to maxItems listing items exactly like a normal run, then filters out already-seen records afterward. A run capped tightly by maxItems can therefore return fewer new records than actually exist if unseen ones sit beyond the walked window. Leave off for a full one-off extraction.",
+            "description": "Remembers every advertisement it has delivered (id, version, status - per filter set, in a named key-value store) and returns only what is new, amended or status-changed since. The portal has no timestamp sort, so every listing page is re-read on each run (cheap: OPEN is 2 pages, fetched in parallel); detail is fetched only for records that will be delivered. The first run is the baseline: with a small 'Max records' it delivers the most recently published advertisements and treats everything older as history.",
+            "default": false,
+            "prefill": true
+        },
+        "deltaStateName": {
+            "title": "Delta state name",
+            "type": "string",
+            "description": "Optional label for the memory of a monitoring task. Defaults to a fingerprint of your filters, so different schedules never interfere. Set the same name on two tasks to make them share one memory.",
+            "editor": "textfield",
+            "pattern": "^[A-Za-z0-9-]{1,30}$"
+        },
+        "resetState": {
+            "title": "Reset delta memory before this run",
+            "type": "boolean",
+            "description": "Forget every previously delivered advertisement for this delta state and re-baseline (the run then returns up to 'Max records' of the most recently published advertisements).",
             "default": false
         },
+        "maxItems": {
+            "sectionCaption": "Limits & performance",
+            "title": "Max records per run",
+            "type": "integer",
+            "description": "Hard cap on delivered records (and therefore on cost: you pay per record). Newest-published first; amendments and status changes to known records always come first. In delta mode anything beyond the cap stays unseen and is delivered by the next run.",
+            "editor": "number",
+            "default": 100,
+            "minimum": 1,
+            "maximum": 50000,
+            "unit": "records"
+        },
+        "fetchDetail": {
+            "title": "Fetch full detail per advertisement",
+            "type": "boolean",
+            "description": "One extra request per delivered record for the description (HTML + plain text), UNSPSC commodity codes, documents with download links, response contact, response due date, last-update timestamp, linked solicitation and indicator flags. Off = listing-only summary records (cheaper 'result-summary' price).",
+            "default": true
+        },
+        "maxConcurrency": {
+            "title": "Parallel requests",
+            "type": "integer",
+            "description": "How many listing pages / detail requests are in flight at once. The portal answered 10 concurrent requests in 0.6 s with no throttling; 5 is a comfortable default.",
+            "editor": "number",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 10
+        },
         "dateRange": {
-            "title": "Filter by recency (publishDate)",
+            "title": "Legacy recency preset (deprecated - use 'Published from')",
             "type": "string",
-            "description": "Optionally restrict results to solicitations whose own publishDate (when the ad was posted to the portal) falls within this window. Independent of onlyNew.",
-            "editor": "select",
-            "enum": ["24h", "7d", "30d"],
-            "enumTitles": ["Last 24 hours", "Last 7 days", "Last 30 days"]
+            "description": "Kept for tasks created with version 1: '24h', '7d' or '30d' are interpreted as 'Published from'.",
+            "editor": "hidden",
+            "pattern": "^(24h|7d|30d)$"
         }
     }
 }

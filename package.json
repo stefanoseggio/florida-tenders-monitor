@@ -1,38 +1,63 @@
 {
-  "name": "florida-tenders-monitor",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Florida Tenders Monitor: extracts public procurement solicitations (bids, RFPs, ITBs) from the State of Florida's MyFloridaMarketPlace (MFMP) Vendor Information Portal, with full detail, commodity codes, contact info and direct document links.",
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "dependencies": {
-    "apify": "^3.7.0"
-  },
-  "devDependencies": {
-    "@apify/eslint-config": "^2.0.0",
-    "@apify/tsconfig": "^0.2.0",
-    "@types/node": "^24.0.0",
-    "eslint": "^9.29.0",
-    "eslint-config-prettier": "^10.1.5",
-    "globals": "^17.0.0",
-    "prettier": "^3.5.3",
-    "tsx": "^4.20.3",
-    "typescript": "^6.0.0",
-    "typescript-eslint": "^8.58.0",
-    "vitest": "^4.1.0"
-  },
-  "scripts": {
-    "start": "npm run start:dev",
-    "start:prod": "node dist/main.js",
-    "start:dev": "tsx src/main.ts",
-    "build": "tsc",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "test": "vitest run"
-  },
-  "author": "Stefano",
-  "license": "ISC"
+    "name": "florida-tenders-monitor",
+    "version": "2.0.0",
+    "type": "module",
+    "description": "MyFloridaMarketPlace Bids Scraper & Monitor: scrape and monitor every Florida state-agency solicitation on the MFMP Vendor Information Portal (ITB, RFP, ITN, RFI, RSQ, single source, intent-to-award / agency decisions, grant opportunities) with server-side filters, delta mode (new / amended / status-changed), UNSPSC codes, contacts, document links and normalised dates.",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "dependencies": {
+        "apify": "^3.7.0",
+        "cheerio": "1.0.0-rc.12"
+    },
+    "devDependencies": {
+        "@apify/eslint-config": "^2.0.0",
+        "@apify/tsconfig": "^0.2.0",
+        "@types/node": "^24.0.0",
+        "cross-env": "^7.0.3",
+        "eslint": "^9.29.0",
+        "eslint-config-prettier": "^10.1.5",
+        "globals": "^17.0.0",
+        "prettier": "^3.5.3",
+        "tsx": "^4.20.3",
+        "typescript": "^6.0.0",
+        "typescript-eslint": "^8.58.0",
+        "vitest": "^4.1.0"
+    },
+    "scripts": {
+        "start": "npm run start:dev",
+        "start:prod": "node dist/main.js",
+        "start:dev": "tsx src/main.ts",
+        "build": "tsc",
+        "lint": "eslint",
+        "lint:fix": "eslint --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:live": "cross-env LIVE=1 vitest run"
+    },
+    "author": "Stefano",
+    "license": "Apache-2.0",
+    "keywords": [
+        "apify",
+        "actor",
+        "myfloridamarketplace",
+        "mfmp",
+        "florida",
+        "state bids",
+        "government procurement",
+        "rfp",
+        "itb",
+        "solicitations",
+        "intent to award",
+        "scraper",
+        "monitor",
+        "delta",
+        "b2b data"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/stefanoseggio/florida-tenders-monitor.git"
+    },
+    "homepage": "https://apify.com/stefano_seggio/florida-tenders-monitor"
 }
