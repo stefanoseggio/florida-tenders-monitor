@@ -116,10 +116,22 @@ calendar day. `src/normalize.ts` emits canonical `Z` twins and
 - `linkedAdNumber` on an Agency Decision is the advertisementId of the
   original solicitation (16672 -> 16671).
 
+### Transient detail failures
+
+A record whose detail request failed for a transient reason (anything but
+NOT_FOUND) is delivered as a summary but NOT marked seen (main.ts
+`isTransientDetailFailure`), so the next run delivers it again with a fresh
+detail attempt; a NOT_FOUND detail is remembered like any delivered record.
+
 ### Rate tolerance
 
-10 concurrent detail GETs: 10 x 200 in 626 ms total. 8 concurrent CLOSED
-pages of 100: 1.7 s total. `maxConcurrency` is capped at 10, default 5.
+10 concurrent detail GETs: 10 x 200 in 626 ms total, no throttling. The
+LISTING endpoint (POST /mfmp/pub/search/bids) is throttled: a full CLOSED walk
+(131 pages) at concurrency 10 produced 8 HTTP 429s and a burst at 8 got one on
+the first page (2026-09-08); sequential and concurrency 5 were clean. Hence
+`maxConcurrency` defaults to 5 (hard cap 10) and `src/http.ts` treats 429
+specially: warning-level log, up to 4 extra retries, backoff 2 s doubling to
+60 s, and the Retry-After header is honoured when present.
 
 ### robots.txt, terms, licence
 

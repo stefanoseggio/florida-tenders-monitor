@@ -143,7 +143,9 @@ export function resolveInput(raw: ActorInput, now: Date): ResolvedInput {
     const closesAfter = resolveDate(raw.closesAfter, now, 'closesAfter');
 
     const filters: SearchFilters = {
-        statuses: [...new Set(statuses)],
+        // Canonical order: the delta-store fingerprint must not depend on how the
+        // user ordered the multi-select.
+        statuses: AD_STATUSES.filter((s) => statuses.includes(s)),
         types: [...new Set(types)].sort((a, b) => Number(a) - Number(b)),
         agencyIds: [...agencyIds].sort(),
         title: text(raw.titleContains),

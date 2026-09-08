@@ -48,7 +48,10 @@
             "type": "array",
             "description": "MFMP organization ids, e.g. 30000021 (FDOT), 30000023 (DCF), 30000029 (AHCA), 30000032 (DMS), 30000026 (DOH), 30000031 (FDLE), 30000018 (DOE), 30000011 (DEP), 30000015 (FDACS), 30000012 (DOC), 30000036 (FWC), 30000039 (DJJ), 30000034 (REV), 30000019 (FSDB), 30000030 (FDC), 30000020 (FDVA), 30000025 (DMA), 30000013 (DLA), 30000033 (DOAH). Every record carries its `organizationId`, so run once without this filter to discover the rest (the portal has no public agency list).",
             "editor": "stringList",
-            "items": { "type": "string", "pattern": "^\\d{4,12}$" },
+            "items": {
+                "type": "string",
+                "pattern": "^\\d{4,12}$"
+            },
             "default": []
         },
         "agencyNameContains": {
@@ -68,7 +71,10 @@
             "type": "array",
             "description": "Exact 8-digit UNSPSC codes, e.g. 83112200 (Enhanced telecommunications services), 43230000 (Software). Several codes = union. The portal matches exact codes only - a prefix such as '43' returns nothing.",
             "editor": "stringList",
-            "items": { "type": "string", "pattern": "^\\d{8}$" },
+            "items": {
+                "type": "string",
+                "pattern": "^\\d{8}$"
+            },
             "default": []
         },
         "adNumber": {
@@ -166,7 +172,7 @@
         "maxConcurrency": {
             "title": "Parallel requests",
             "type": "integer",
-            "description": "How many listing pages / detail requests are in flight at once. The portal answered 10 concurrent requests in 0.6 s with no throttling; 5 is a comfortable default.",
+            "description": "How many listing pages / detail requests are in flight at once. Detail pages tolerate 10; the listing endpoint starts returning HTTP 429 above about 8 in flight (the Actor backs off and retries), so keep 5 for large backfills.",
             "editor": "number",
             "default": 5,
             "minimum": 1,

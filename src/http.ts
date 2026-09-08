@@ -51,12 +51,31 @@ export class NotJsonError extends Error {
 export interface FetchOptions {
     maxRetries?: number;
     baseDelayMs?: number;
+    /** First back-off after an HTTP 429 (doubles per attempt, capped at 60 s). */
+    rateLimitBaseDelayMs?: number;
     timeoutMs?: number;
+}
+
+// The listing endpoint (POST /mfmp/pub/search/bids) answers HTTP 429 when
+// 8-10 requests are in flight (verified 2026-09-08); detail GETs did not. A
+// 429 is retried more patiently than other transient errors and honours the
+// Retry-After header when the portal sends one.
+const RATE_LIMIT_EXTRA_RETRIES = 4;
+const RATE_LIMIT_MAX_DELAY_MS = 60_000;
+
+function retryAfterMs(response: Response): number | null {
+    const header = response.headers.get('retry-after');
+    if (!header) return null;
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const at = Date.parse(header);
+    return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
 }
 
 const DEFAULTS: Required<FetchOptions> = {
     maxRetries: 4,
     baseDelayMs: 1000,
+    rateLimitBaseDelayMs: 2000,
     // Listing pages answer in ~0.6-1.2 s, detail GETs in ~0.6 s; 30 s is generous.
     timeoutMs: 30_000,
 };
@@ -85,10 +104,15 @@ export function absoluteUrl(path: string): string {
  * silently treated as "no results".
  */
 export async function requestJson(path: string, init: RequestInit = {}, options: FetchOptions = {}): Promise<unknown> {
-    const { maxRetries, baseDelayMs, timeoutMs } = { ...DEFAULTS, ...options };
+    const { maxRetries, baseDelayMs, rateLimitBaseDelayMs, timeoutMs } = { ...DEFAULTS, ...options };
     const url = absoluteUrl(path);
     let lastError: Error = new Error('unreachable');
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let extraRetries = 0;
+    let rateLimited = false;
+    let waitHint: number | null = null;
+    for (let attempt = 0; attempt <= maxRetries + extraRetries; attempt++) {
+        rateLimited = false;
+        waitHint = null;
         try {
             const response = await fetch(url, {
                 ...init,
@@ -121,15 +145,23 @@ export async function requestJson(path: string, init: RequestInit = {}, options:
                     ? new MfmpApiError(response.status, url, apiMessage)
                     : new HttpError(response.status, url);
             }
+            if (response.status === 429) {
+                rateLimited = true;
+                extraRetries = RATE_LIMIT_EXTRA_RETRIES;
+                waitHint = retryAfterMs(response);
+            }
             lastError = new HttpError(response.status, url);
         } catch (error) {
             if (error instanceof NotJsonError) throw error;
             if (error instanceof HttpError && !isRetriableStatus(error.status)) throw error;
             lastError = error instanceof Error ? error : new Error(String(error));
         }
-        if (attempt < maxRetries) {
-            const delay = Math.min(baseDelayMs * 2 ** attempt, 15_000) + Math.floor(Math.random() * 250);
-            log.debug(`Retrying ${url} in ${delay}ms after: ${lastError.message}`);
+        if (attempt < maxRetries + extraRetries) {
+            const backoff = rateLimited
+                ? Math.min(rateLimitBaseDelayMs * 2 ** attempt, RATE_LIMIT_MAX_DELAY_MS)
+                : Math.min(baseDelayMs * 2 ** attempt, 15_000);
+            const delay = Math.max(waitHint ?? 0, backoff) + Math.floor(Math.random() * 250);
+            log[rateLimited ? 'warning' : 'debug'](`Retrying ${url} in ${delay}ms after: ${lastError.message}`);
             await sleep(delay);
         }
     }

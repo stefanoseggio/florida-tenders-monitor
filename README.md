@@ -231,7 +231,7 @@ Every filter is applied server-side by MFMP unless marked otherwise.
 **Historical backfill of the closed register (award research)**
 
 ```json
-{ "statuses": ["CLOSED"], "dateFrom": "2026-01-01", "maxItems": 5000, "maxConcurrency": 10 }
+{ "statuses": ["CLOSED"], "dateFrom": "2026-01-01", "maxItems": 5000, "maxConcurrency": 5 }
 ```
 
 ## How monitoring works (delta mode)
@@ -330,12 +330,13 @@ Compare: DemandStar's Florida state plans run $100-1,499 per year and BidNet Dir
 
 ## Where the data comes from, legality and attribution
 
-The Actor reads the public, logged-out MyFloridaMarketPlace Vendor Information Portal operated by the Florida Department of Management Services, using the same unauthenticated JSON endpoints the portal's own search page calls (`/mfmp/pub/search/bids`, `/count`, `/detail`). It bypasses no login, CAPTCHA or access control - the only requirement, an `Accept: application/json` header, is what the portal's front end sends - never touches vendor-only features (`intendsToParticipate`, `assignee`, notifications) and **links to attachments without downloading them**. There is no `robots.txt` on the host (verified 2026-09-07); requests are paced at a proven-tolerated concurrency (10 or fewer).
+The Actor reads the public, logged-out MyFloridaMarketPlace Vendor Information Portal operated by the Florida Department of Management Services, using the same unauthenticated JSON endpoints the portal's own search page calls (`/mfmp/pub/search/bids`, `/count`, `/detail`). It bypasses no login, CAPTCHA or access control - the only requirement, an `Accept: application/json` header, is what the portal's front end sends - never touches vendor-only features (`intendsToParticipate`, `assignee`, notifications) and **links to attachments without downloading them**. There is no `robots.txt` on the host (verified 2026-09-07); requests are paced politely: the listing endpoint starts answering HTTP 429 at 8-10 requests in flight, so the default concurrency is 5 and any 429 is retried with a patient, Retry-After-aware backoff.
 
 Solicitations and intended awards are **public records under Chapter 119, Florida Statutes**, that agencies are required to advertise on the Vendor Bid System (s. 287.042(3)(b) F.S., Rule 60A-1 F.A.C.). The portal footer carries "Copyright (c) 2020 State of Florida" and links to the **MFMP Terms of Use (PUR 3775, rev. 07/2022, incorporated by reference in Rule 60A-1.033 F.A.C.)**, which is the vendor-registration agreement accepted by clicking "I Accept" at registration. This Actor never registers or logs in, so it is not a party to that agreement; note however that section 5 of those terms licenses registered vendors to print and download portal content "solely for non-commercial use" with copyright notices kept, and that the terms contain no clause about automated access. What the Actor extracts are the factual elements of the public notices (identifiers, titles, agencies, dates, commodity codes, contacts, document links); assess your own use of the data accordingly. Response contacts are government employees' work details published so that vendors can respond - do not build personal profiles from them. Intent-to-award notices start statutory protest clocks (s. 120.57(3) F.S.); this Actor is a data feed, not legal notice - verify on the portal before acting. Every record carries a `data_source` attribution string. This Actor is not affiliated with or endorsed by the Florida Department of Management Services or the State of Florida.
 
 ## Honest limits
 
+- If an advertisement's detail request fails for a transient reason (rate limit, timeout, server error) after the retries, the record is still delivered as a listing-only summary (charged at the summary price) and is left unremembered, so the next run fetches its detail again.
 - MFMP has no timestamp sort, so every run re-reads every listing page for the chosen statuses. OPEN is 2 pages (seconds); CLOSED is 131 pages (about 30 seconds in parallel) - fine for a daily schedule, but add CLOSED only if you need award tracking.
 - `UPDATED` tells you a known advertisement changed (its `version` rose), not which field changed; `previousVersion`, `lastUpdateDateUtc`, `documents[].date` and `latestDocumentDateUtc` usually make it obvious. `version` was verified on several amended records, not exhaustively; `lastUpdateDateUtc` is emitted as a second signal.
 - An advertisement that leaves the walked statuses simply disappears (an OPEN-only monitor does not see it close). Include `CLOSED` in `statuses` to receive `STATUS_CHANGE`.
@@ -380,7 +381,7 @@ Yes - every run's dataset can be downloaded as JSON, CSV, Excel or XML from the 
 
 ### Do I need a proxy?
 
-No. The portal is reachable from Apify's datacenter IPs with no login, no CAPTCHA and no rate limiting at the concurrency the Actor uses.
+No. The portal is reachable from Apify's datacenter IPs with no login or CAPTCHA. It does rate-limit the listing endpoint (HTTP 429) above roughly 8 requests in flight; keep at the default 5 for large backfills - the Actor backs off and retries automatically when a 429 does occur.
 
 ### What happens if the portal changes?
 

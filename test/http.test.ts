@@ -52,6 +52,24 @@ describe('requestJson', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('backs off patiently on HTTP 429, honouring Retry-After, and still succeeds after the normal retry budget', async () => {
+        const limited = new Response('', { status: 429, headers: { 'retry-after': '0' } });
+        fetchMock
+            .mockResolvedValueOnce(limited.clone())
+            .mockResolvedValueOnce(limited.clone())
+            .mockResolvedValueOnce(limited.clone())
+            .mockResolvedValueOnce(limited.clone())
+            .mockResolvedValueOnce(response(200, '[]', 'application/json'));
+        // maxRetries 2 would give up after 3 attempts; the 4 extra 429 retries carry it to the 5th.
+        const result = await postJson(
+            '/mfmp/pub/search/bids',
+            {},
+            { baseDelayMs: 1, rateLimitBaseDelayMs: 1, maxRetries: 2 },
+        );
+        expect(result).toEqual([]);
+        expect(fetchMock).toHaveBeenCalledTimes(5);
+    }, 30_000);
+
     it('does not retry a 401 (vendor-only endpoint) but does retry 5xx and network errors', async () => {
         fetchMock.mockResolvedValueOnce(response(401, '', null));
         await expect(getJsonOptional('/mfmp/bids/Agencies', FAST)).rejects.toThrow(HttpError);

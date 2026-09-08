@@ -47,6 +47,11 @@
             "type": "string",
             "title": "Run summary (counts, total matching on MFMP, delta store, floors)",
             "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/OUTPUT"
+        },
+        "contacts": {
+            "type": "string",
+            "title": "Contacts view",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=contacts&desc=true"
         }
     }
 }

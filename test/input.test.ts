@@ -121,5 +121,9 @@ describe('resolveInput', () => {
         expect(a.filtersSignature).not.toBe(c.filtersSignature);
         expect(c.filtersSignature).not.toBe(d.filtersSignature);
         expect(resolveInput({ deltaStateName: 'fdot-watch' }, NOW).options.deltaStateName).toBe('fdot-watch');
+        // The multi-select order must not fork the delta memory.
+        const e = resolveInput({ statuses: ['CLOSED', 'OPEN'] }, NOW);
+        expect(e.filtersSignature).toBe(d.filtersSignature);
+        expect(e.filters.statuses).toEqual(d.filters.statuses);
     });
 });

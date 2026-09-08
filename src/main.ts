@@ -34,6 +34,11 @@ function seenEntryOf(record: TenderRecord): SeenEntry {
     return { version: record.version, status: record.status, updatedAt: record.lastUpdateDateUtc };
 }
 
+/** detailError is null when detail was not requested, NOT_FOUND when the record is gone; anything else is a transient failure. */
+function isTransientDetailFailure(record: TenderRecord): boolean {
+    return !record.detailFetched && record.detailError !== null && record.detailError !== 'NOT_FOUND';
+}
+
 function seenEntryOfCandidate(c: Candidate): SeenEntry {
     return { version: c.item.version, status: c.item.status, updatedAt: c.previous?.updatedAt ?? null };
 }
@@ -202,7 +207,17 @@ async function deliver(
                 const stored = isPayPerEvent ? result.chargedCount : group.items.length;
                 for (const record of group.items.slice(0, stored)) {
                     records.push(record);
-                    markSeen(state, record.advertisementId, seenEntryOf(record));
+                    // A detail that failed for a TRANSIENT reason (429/5xx/timeout after
+                    // retries) is delivered as a summary now but deliberately not
+                    // remembered, so the next run fetches its detail again instead of
+                    // waiting for the agency to bump the version.
+                    if (isTransientDetailFailure(record)) {
+                        log.warning(
+                            `${record.advertisementId}: detail unavailable (${record.detailError}) - delivered as a summary and left unseen so the next run retries the detail.`,
+                        );
+                    } else {
+                        markSeen(state, record.advertisementId, seenEntryOf(record));
+                    }
                     dirty = true;
                     sinceLastPersist += 1;
                 }
