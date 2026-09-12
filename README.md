@@ -1,5 +1,12 @@
 # Florida State Procurement Monitor - MyFloridaMarketPlace Bids & Awards (US Government Contracts)
 
+[![Built for Apify](https://img.shields.io/badge/Built%20for-Apify-00C0B5?style=flat-square&logo=apify&logoColor=white)](https://apify.com)
+[![Pay-Per-Event pricing](https://img.shields.io/badge/Pricing-Pay--Per--Event%20from%20%240.001-2ea44f?style=flat-square)](https://apify.com/stefano_seggio/florida-tenders-monitor)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](./LICENSE)
+
+[![Run on Apify](https://apify.com/actor-badge?actor=stefano_seggio/florida-tenders-monitor)](https://apify.com/stefano_seggio/florida-tenders-monitor)
+
 ## Executive Value Proposition
 
 MyFloridaMarketPlace's Vendor Bid System has no timestamp sort, no RSS feed and no change log for the addenda that quietly move close dates - so checking it manually means re-scanning the full OPEN and CLOSED lists, by status and type, every single time. This Actor replaces that recurring manual scan with one scheduled run: it applies the same server-side filters as the portal's own search form (status, type, agency, UNSPSC code, publish/open/close dates), and in delta mode returns only the advertisements that are new, amended or have changed status since the previous run. Every record also arrives pre-normalised - UTC and Florida wall-clock timestamps, plain-text descriptions, flattened contacts, UNSPSC codes as a clean array - so a contracts or business-development team reviews a short, already-filtered diff instead of re-reading raw portal pages one advertisement at a time.
@@ -9,6 +16,24 @@ MyFloridaMarketPlace's Vendor Bid System has no timestamp sort, no RSS feed and 
 - **Government contractors and SMEs (IT, construction, health and social services)** - filter by `commodityCodeIds`, `type` and `agency` to see only the ITBs, RFPs and ITNs that match their line of business, with `closeDateLocal` and `daysUntilClose` to prioritise which ones to answer first.
 - **Capture teams, incumbents and competitive-bid intelligence** - run with `onlyNew: true` against known solicitations and watch for `event_type: UPDATED`: the portal's `version` counter rises on every agency edit, so an addendum, a Q&A document or a close-date extension is caught even though the advertisement's publish date never moves.
 - **Compliance and bid-protest teams** - track `STATUS_CHANGE` events (e.g. OPEN to CLOSED) and `isAwardNotice` / `linkedAdNumber` on Agency Decision notices to know the moment an intended award is posted against a solicitation they are following, and confirm on the portal before the statutory protest window closes.
+
+## Quick start
+
+Run it from the [Apify CLI](https://docs.apify.com/cli) with a real input - this pulls open FDOT RFPs and ITNs closing after today, delta-mode on:
+
+```bash
+apify call stefano_seggio/florida-tenders-monitor --input '{
+    "statuses": ["OPEN"],
+    "types": ["5", "6"],
+    "agencyIds": ["30000021"],
+    "closesAfter": "0 days",
+    "onlyNew": true,
+    "maxItems": 100,
+    "fetchDetail": true
+}'
+```
+
+Or start it from the [Actor page](https://apify.com/stefano_seggio/florida-tenders-monitor) in the Apify Console, or call it from Node.js / Python with `apify-client` - see [`examples/`](./examples) below.
 
 ## Input
 
@@ -131,18 +156,22 @@ Delta mode (`onlyNew: true`) is keyed on the portal's own `version` counter and 
 - **Rate handling**: the listing endpoint starts returning HTTP 429 above roughly 8 requests in flight, so default concurrency is 5 and 429s are retried with backoff rather than failing the run.
 - **Fail loud, not silent**: every response is validated for the expected JSON shape; if the portal changes in a way the parser doesn't recognise, the run fails instead of returning an empty "0 results, success" dataset.
 
-## Pricing
+## Pricing (Pay-Per-Event)
 
 Pay per event (`PAY_PER_EVENT`) - platform usage is included, you pay only for delivered records, never for compute time:
 
-| Event            | Price                        | When it's charged                                                                              |
-| ----------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `result`          | **$0.003** per advertisement  | A record delivered with full detail (description, commodity codes, documents, contact, 70+ fields) |
-| `result-summary`  | **$0.001** per advertisement  | A listing-only record (`fetchDetail: false`, or a detail request that could not be completed)     |
-| Actor start       | $0.00005                      | Once per run                                                                                     |
+| Event                            | Title                        | Price                        | When it's charged                                                                              |
+| --------------------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `result`                          | Record (full detail)          | **$0.003** per advertisement  | A record delivered with full detail (description, commodity codes, documents, contact, 70+ fields) |
+| `result-summary`                  | Record (listing summary)      | **$0.001** per advertisement  | A listing-only record (`fetchDetail: false`, or a detail request that could not be completed)     |
+| Actor start                       | -                              | $0.00005                      | Once per run                                                                                     |
 
 Worked examples from these figures: the entire OPEN register (roughly 165 advertisements) with full detail costs about **$0.50**; a daily delta-mode monitor that turns up 8 new or amended advertisements costs about **$0.024/day** - under $1/month; a full CLOSED-register backfill of roughly 13,000 records costs about **$39** with detail or **$13** listing-only. A quiet monitoring run that finds nothing new costs only the Actor-start fee.
 
 ## Support & Enterprise SLA
 
 This Actor is built and maintained by an independent developer, not a vendor support team - there is no enterprise SLA on offer, and none is claimed here. Bug reports and feature requests are handled through the Apify Store **Issues** tab for this Actor, with a typical first response inside about 48 hours. Versioned changes are recorded in the Actor's Changelog tab so you can see exactly what shipped between runs.
+
+---
+
+This Actor is part of **Delta Registry** - pay-per-event regulatory & compliance data infrastructure built and operated by Stefano Seggio. For professional inquiries or enterprise licensing, connect on [LinkedIn](https://www.linkedin.com/in/stefanoseggio-deltaregistry); for the rest of the fleet, see [github.com/stefanoseggio](https://github.com/stefanoseggio).

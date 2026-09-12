@@ -1,0 +1,20 @@
+{
+  "oneLineDescription": "Monitors Florida state-agency solicitations on MyFloridaMarketPlace (ITB, RFP, ITN, awards) and delivers only new, amended, or status-changed records as clean, pay-per-event JSON.",
+  "topics": [
+    "apify",
+    "apify-actor",
+    "florida",
+    "government-procurement",
+    "public-procurement",
+    "rfp",
+    "tenders",
+    "typescript",
+    "web-scraping",
+    "myfloridamarketplace",
+    "government-contracts",
+    "itb",
+    "unspsc",
+    "pay-per-event",
+    "change-detection"
+  ]
+}
