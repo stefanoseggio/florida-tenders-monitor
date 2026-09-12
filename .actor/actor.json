@@ -1,21 +1,24 @@
 {
-    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
-    "actorSpecification": 1,
-    "name": "florida-tenders-monitor",
-    "title": "MyFloridaMarketPlace Bids Scraper & Monitor",
-    "description": "Scrape and monitor Florida state-agency solicitations on MyFloridaMarketPlace (MFMP VBS): ITB, RFP, ITN, RFI, RSQ, single source and intent-to-award notices with UNSPSC codes, contacts, documents. Server-side filters, delta mode for new, amended and closed ads, normalised dates. Pay per result.",
-    "version": "2.0",
-    "buildTag": "latest",
-    "minMemoryMbytes": 256,
-    "maxMemoryMbytes": 1024,
-    "meta": {
-        "templateId": "ts-crawlee-cheerio"
-    },
-    "inputSchema": "./input_schema.json",
-    "outputSchema": "./output_schema.json",
-    "storages": {
-        "dataset": "./dataset_schema.json"
-    },
-    "changelog": "../CHANGELOG.md",
-    "dockerfile": "../Dockerfile"
+  "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+  "actorSpecification": 1,
+  "name": "florida-tenders-monitor",
+  "title": "MyFloridaMarketPlace - State Bids Delta JSON Feed",
+  "description": "Monitor Florida state-agency procurement on MyFloridaMarketPlace (MFMP VBS): ITB, RFP, ITN, RFI, RSQ, Single Source and intent-to-award notices with UNSPSC codes, contacts and documents. Server-side filters, delta mode flags new, amended and closed solicitations, normalised dates. Pay per result.",
+  "version": "2.0",
+  "buildTag": "latest",
+  "minMemoryMbytes": 256,
+  "maxMemoryMbytes": 1024,
+  "meta": {
+    "templateId": "ts-crawlee-cheerio"
+  },
+  "inputSchema": "./input_schema.json",
+  "outputSchema": "./output_schema.json",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "changelog": "../CHANGELOG.md",
+  "dockerfile": "../Dockerfile",
+  "categories": [
+    "BUSINESS"
+  ]
 }
