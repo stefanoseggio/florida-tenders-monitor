@@ -156,6 +156,43 @@ Delta mode (`onlyNew: true`) is keyed on the portal's own `version` counter and 
 - **Rate handling**: the listing endpoint starts returning HTTP 429 above roughly 8 requests in flight, so default concurrency is 5 and 429s are retried with backoff rather than failing the run.
 - **Fail loud, not silent**: every response is validated for the expected JSON shape; if the portal changes in a way the parser doesn't recognise, the run fails instead of returning an empty "0 results, success" dataset.
 
+## Instant Terminal Run (cURL)
+
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+
+```bash
+curl -X POST "https://api.apify.com/v2/acts/afSZyXLVcgnLpucyo/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "maxItems": 50,
+  "onlyNew": true
+}'
+```
+
+## Sample Extracted Dataset (JSON)
+
+One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+
+```json
+{
+  "record_id": "16861",
+  "event_type": "NEW_LISTING",
+  "scraped_at": "2026-09-08T08:20:11.402Z",
+  "is_new": true,
+  "source_url": "https://vendor.myfloridamarketplace.com/search/bids/detail/16861",
+  "uniqueName": "RFP-16861",
+  "agencyAdNumber": "DOT-RFP-27-9018-SJ",
+  "title": "Commercial Driver's License (CDL) Training and Testing Services",
+  "type": "Request for Proposals",
+  "status": "OPEN",
+  "agency": "Florida Department of Transportation (FDOT)",
+  "openDate": "2026-09-03T20:06:37.000+00:00",
+  "closeDate": "2026-09-21T14:00:00.000+00:00",
+  "responseWindowDays": 17,
+  "isAmended": false
+}
+```
+
 ## Pricing (Pay-Per-Event)
 
 Pay per event (`PAY_PER_EVENT`) - platform usage is included, you pay only for delivered records, never for compute time:
