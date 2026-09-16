@@ -7,6 +7,8 @@
 
 [![Run on Apify](https://apify.com/actor-badge?actor=stefano_seggio/florida-tenders-monitor)](https://apify.com/stefano_seggio/florida-tenders-monitor)
 
+**Monitors MyFloridaMarketPlace (MFMP VBS) — the State of Florida's official Vendor Bid System — for ITB / RFP / ITN / RFI / RSQ solicitations and Agency Decision (award) notices, and runs on whatever Apify schedule you configure; there is no fixed built-in cadence.**
+
 ## Executive Value Proposition
 
 MyFloridaMarketPlace's Vendor Bid System has no timestamp sort, no RSS feed and no change log for the addenda that quietly move close dates - so checking it manually means re-scanning the full OPEN and CLOSED lists, by status and type, every single time. This Actor replaces that recurring manual scan with one scheduled run: it applies the same server-side filters as the portal's own search form (status, type, agency, UNSPSC code, publish/open/close dates), and in delta mode returns only the advertisements that are new, amended or have changed status since the previous run. Every record also arrives pre-normalised - UTC and Florida wall-clock timestamps, plain-text descriptions, flattened contacts, UNSPSC codes as a clean array - so a contracts or business-development team reviews a short, already-filtered diff instead of re-reading raw portal pages one advertisement at a time.
@@ -17,9 +19,25 @@ MyFloridaMarketPlace's Vendor Bid System has no timestamp sort, no RSS feed and 
 - **Capture teams, incumbents and competitive-bid intelligence** - run with `onlyNew: true` against known solicitations and watch for `event_type: UPDATED`: the portal's `version` counter rises on every agency edit, so an addendum, a Q&A document or a close-date extension is caught even though the advertisement's publish date never moves.
 - **Compliance and bid-protest teams** - track `STATUS_CHANGE` events (e.g. OPEN to CLOSED) and `isAwardNotice` / `linkedAdNumber` on Agency Decision notices to know the moment an intended award is posted against a solicitation they are following, and confirm on the portal before the statutory protest window closes.
 
-## Quick start
+## Cost & BYOK Disclosure
 
-Run it from the [Apify CLI](https://docs.apify.com/cli) with a real input - this pulls open FDOT RFPs and ITNs closing after today, delta-mode on:
+**No third-party key required.** This Actor needs nothing beyond your Apify account — there is no BYOK requirement, no separate MyFloridaMarketPlace credential, and no pooled or resold third-party license involved.
+
+Pay per event (`PAY_PER_EVENT`) - platform usage is included, you pay only for delivered records, never for compute time:
+
+| Event | Title | Price | When it's charged |
+| --- | --- | --- | --- |
+| `result` | Record (full detail) | **$0.003** per advertisement | A record delivered with full detail (description, commodity codes, documents, contact, 70+ fields) |
+| `result-summary` | Record (listing summary) | **$0.001** per advertisement | A listing-only record (`fetchDetail: false`, or a detail request that could not be completed) |
+| Actor start | — | $0.00005 | Once per run |
+
+**Unchanged records are never billed.** Delta mode is keyed on the portal's own `version` counter and `status` field, not a generic timestamp: a record whose `version` and `status` still match what this Actor delivered on a previous run is treated as unchanged and is suppressed before delivery — it never reaches the dataset and is never charged. Only a record that is genuinely new, whose `version` rose (an addendum, Q&A, or close-date extension), or whose `status` flipped, is delivered and billed.
+
+Worked examples from these figures: the entire OPEN register (roughly 165 advertisements) with full detail costs about **$0.50**; a daily delta-mode monitor that turns up 8 new or amended advertisements costs about **$0.024/day** - under $1/month; a full CLOSED-register backfill of roughly 13,000 records costs about **$39** with detail or **$13** listing-only. A quiet monitoring run that finds nothing new costs only the Actor-start fee.
+
+## Quickstart
+
+Also runnable straight from the [Apify CLI](https://docs.apify.com/cli) with a real input — this pulls open FDOT RFPs and ITNs closing after today, delta-mode on — or from the [Actor page](https://apify.com/stefano_seggio/florida-tenders-monitor) in the Apify Console:
 
 ```bash
 apify call stefano_seggio/florida-tenders-monitor --input '{
@@ -33,11 +51,79 @@ apify call stefano_seggio/florida-tenders-monitor --input '{
 }'
 ```
 
-Or start it from the [Actor page](https://apify.com/stefano_seggio/florida-tenders-monitor) in the Apify Console, or call it from Node.js / Python with `apify-client` - see [`examples/`](./examples) below.
+### cURL (instant terminal run)
 
-## Input
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
 
-Every filter below is applied server-side by MyFloridaMarketPlace's own search endpoint unless marked client-side; leave everything empty to walk every OPEN advertisement.
+```bash
+curl -X POST "https://api.apify.com/v2/acts/afSZyXLVcgnLpucyo/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "maxItems": 50,
+  "onlyNew": true
+}'
+```
+
+### Python (`apify-client`)
+
+```python
+import os
+
+from apify_client import ApifyClient
+
+client = ApifyClient(os.environ["APIFY_TOKEN"])
+
+run_input = {
+    "statuses": ["OPEN"],
+    "types": ["5", "6"],  # Invitation to Negotiate (ITN), Request for Proposals (RFP)
+    "agencyIds": ["30000021"],  # Florida Department of Transportation (FDOT)
+    "closesAfter": "0 days",  # only advertisements still open today
+    "onlyNew": True,  # delta mode: only new / amended / status-changed records
+    "maxItems": 100,
+    "fetchDetail": True,
+}
+
+run = client.actor("stefano_seggio/florida-tenders-monitor").call(run_input=run_input)
+
+dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
+for item in dataset_items:
+    print(f"{item['event_type']} | {item['uniqueName']} | {item['title']} ({item['status']})")
+```
+
+A full, runnable copy of this script lives at [`examples/run_actor.py`](./examples/run_actor.py).
+
+### Node.js (`apify-client`)
+
+```js
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
+
+const input = {
+    statuses: ['OPEN'],
+    types: ['5', '6'], // Invitation to Negotiate (ITN), Request for Proposals (RFP)
+    agencyIds: ['30000021'], // Florida Department of Transportation (FDOT)
+    closesAfter: '0 days', // only advertisements still open today
+    onlyNew: true, // delta mode: only new / amended / status-changed records
+    maxItems: 100,
+    fetchDetail: true,
+};
+
+const run = await client.actor('stefano_seggio/florida-tenders-monitor').call(input);
+const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+for (const item of items) {
+    console.log(`${item.event_type} | ${item.uniqueName} | ${item.title} (${item.status})`);
+}
+```
+
+A full, runnable copy of this script lives at [`examples/run-actor.cjs`](./examples/run-actor.cjs) (CommonJS, `require`-based).
+
+## Input & Output Schema
+
+### Input
+
+Every filter below is applied server-side by MyFloridaMarketPlace's own search endpoint unless marked client-side; leave everything empty to walk every OPEN advertisement. Field definitions come straight from [`.actor/input_schema.json`](./.actor/input_schema.json).
 
 ```json
 {
@@ -52,28 +138,28 @@ Every filter below is applied server-side by MyFloridaMarketPlace's own search e
 }
 ```
 
-| Field                    | Type     | Default                    | Description                                                                                                                                                                                               |
-| ------------------------ | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `statuses`               | string[] | `["OPEN"]`                 | `OPEN`, `CLOSED`, `WITHDRAWN`, `PREVIEW`. OPEN is 2 pages; add `CLOSED` (131 pages, fetched in parallel) for award tracking and `STATUS_CHANGE` events                                                    |
-| `types`                  | string[] | `[]` (all)                 | `1` Agency Decision, `2` Grant Opportunities, `3` Informational Notice, `4` ITB, `5` ITN, `6` RFP, `7` Public Meeting Notice, `8` RFI, `9` RSQ, `10` Single Source. Several = union                       |
-| `agencyIds`              | string[] | `[]`                       | MFMP `organizationId` values, e.g. `30000021` FDOT, `30000023` DCF, `30000029` AHCA, `30000032` DMS, `30000026` DOH. Every record carries its `organizationId`                                            |
-| `agencyNameContains`     | string   | -                           | Substring on the agency name or short name (client-side)                                                                                                                                                  |
-| `titleContains`          | string   | -                           | Case-insensitive substring on the title                                                                                                                                                                   |
-| `commodityCodes`         | string[] | `[]`                       | Exact 8-digit UNSPSC codes (the portal has no prefix search)                                                                                                                                              |
-| `adNumber`                | string   | -                           | One advertisement, `16672` or `AD-16672`                                                                                                                                                                  |
-| `agencyAdNumberContains` | string   | -                           | Substring on the agency's own reference, e.g. `DOT-RFP-27`                                                                                                                                                |
-| `dateFrom`, `dateTo`     | string   | -                           | Publish window, absolute (`2026-09-01`) or relative (`7 days`). Amendments keep the original publish date                                                                                                |
-| `openBefore`             | string   | -                           | Only advertisements whose open date is on or before this day                                                                                                                                              |
-| `closesAfter`            | string   | -                           | Only advertisements whose close date is on or after this day (`0 days` = still open today)                                                                                                                |
-| `eventTypes`             | string[] | all three                  | Which of `NEW_LISTING`, `UPDATED`, `STATUS_CHANGE` to deliver                                                                                                                                             |
-| `onlyNew`                | boolean  | `false`                    | Delta mode - see Reliability below                                                                                                                                                                        |
-| `deltaStateName`         | string   | fingerprint of the filters | Name of the delta memory; share it between tasks on purpose, never by accident                                                                                                                            |
-| `resetState`             | boolean  | `false`                    | Forget delivered advertisements and re-baseline                                                                                                                                                           |
-| `maxItems`               | integer  | `100`                      | Cap on delivered records per run, and on cost. Maximum `50000`                                                                                                                                            |
-| `fetchDetail`            | boolean  | `true`                     | One extra request per delivered record for description, commodity codes, documents, contact, response date, last-update timestamp, linked solicitation, indicator flags                                  |
-| `maxConcurrency`         | integer  | `5`                        | Parallel listing-page / detail requests (1-10)                                                                                                                                                            |
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `statuses` | string[] | `["OPEN"]` | `OPEN`, `CLOSED`, `WITHDRAWN`, `PREVIEW`. OPEN is 2 pages; add `CLOSED` (131 pages, fetched in parallel) for award tracking and `STATUS_CHANGE` events |
+| `types` | string[] | `[]` (all) | `1` Agency Decision, `2` Grant Opportunities, `3` Informational Notice, `4` ITB, `5` ITN, `6` RFP, `7` Public Meeting Notice, `8` RFI, `9` RSQ, `10` Single Source. Several = union |
+| `agencyIds` | string[] | `[]` | MFMP `organizationId` values, e.g. `30000021` FDOT, `30000023` DCF, `30000029` AHCA, `30000032` DMS, `30000026` DOH. Every record carries its `organizationId` |
+| `agencyNameContains` | string | - | Substring on the agency name or short name (client-side) |
+| `titleContains` | string | - | Case-insensitive substring on the title |
+| `commodityCodes` | string[] | `[]` | Exact 8-digit UNSPSC codes (the portal has no prefix search) |
+| `adNumber` | string | - | One advertisement, `16672` or `AD-16672` |
+| `agencyAdNumberContains` | string | - | Substring on the agency's own reference, e.g. `DOT-RFP-27` |
+| `dateFrom`, `dateTo` | string | - | Publish window, absolute (`2026-09-01`) or relative (`7 days`). Amendments keep the original publish date |
+| `openBefore` | string | - | Only advertisements whose open date is on or before this day |
+| `closesAfter` | string | - | Only advertisements whose close date is on or after this day (`0 days` = still open today) |
+| `eventTypes` | string[] | all three | Which of `NEW_LISTING`, `UPDATED`, `STATUS_CHANGE` to deliver |
+| `onlyNew` | boolean | `false` | Delta mode - see Reliability below |
+| `deltaStateName` | string | fingerprint of the filters | Name of the delta memory; share it between tasks on purpose, never by accident |
+| `resetState` | boolean | `false` | Forget delivered advertisements and re-baseline |
+| `maxItems` | integer | `100` | Cap on delivered records per run, and on cost. Maximum `50000` |
+| `fetchDetail` | boolean | `true` | One extra request per delivered record for description, commodity codes, documents, contact, response date, last-update timestamp, linked solicitation, indicator flags |
+| `maxConcurrency` | integer | `5` | Parallel listing-page / detail requests (1-10) |
 
-## Output
+### Output
 
 One real record (description trimmed; every record carries 70+ fields):
 
@@ -139,11 +225,63 @@ One real record (description trimmed; every record carries 70+ fields):
 
 An amendment carries `"event_type": "UPDATED"`, `"is_new": false`, a higher `version`, a `previousVersion` and a fresh entry in `documents[]` (e.g. `"description": "Addendum No. 03 - Q&A"`). An intent-to-award notice carries `"type": "Agency Decision"`, `"isAwardNotice": true` and `linkedAdNumber` / `linkedAdUrl` pointing at the original solicitation.
 
-**Integration envelope** (same on every run): `record_id`, `event_type` (`NEW_LISTING` / `UPDATED` / `STATUS_CHANGE`), `scraped_at`, `is_new`, `source_url`, `data_source`.
+Field descriptions below (from [`.actor/dataset_schema.json`](./.actor/dataset_schema.json)) cover every field in the sample above:
 
-**Advertisement fields**, grouped: Identity (`advertisementId`, `uniqueName`, `agencyAdNumber`, `title`, `type`, `typeId`, `status`, `isAwardNotice`, `isSingleSource`) - Agency (`agency`, `organizationId`, `organizationShortName`, `organizationEntity`) - Dates, raw and normalised (`openDate`/`closeDate`/`publishDate`, their `...Utc` and `...Local` twins, `publishDay`, `closeDay`, `responseWindowDays`, `daysUntilClose`, `isOpenForResponses`) - Amendments (`version`, `isAmended`, `previousVersion`, `previousStatus`, `lastUpdateDateUtc`) - Detail, when `fetchDetail: true` (`description`, `descriptionText`, `amountsUsd`, `maxAmountUsd`, `responseDate`/`responseDateLocal`, `linkedAdNumber`/`linkedAdUrl`, `withdrawn`, `minorityEncouraged`, `preSolicitationConference`) - Commodity codes (`commodityCodes` as `{id, value}[]`, `commodityCodeIds`) - Documents (`documents[]` with `fileName`, `downloadUrl`, `attachmentId`, `description`, `dateUtc`, `documentCount`) - Contact (`responseContact` raw object plus flattened `contactName`, `contactEmail`, `contactPhone`, `contactAddress`, `contactCity`, `contactState`, `contactZip`).
+**Integration envelope** (same on every run):
 
-Output tab views: Overview, Bid pipeline, Amendments & status changes, Awards & single source, Contacts - or export JSON, CSV or Excel.
+| Field | Description |
+| --- | --- |
+| `record_id` | `advertisementId` as a string - stable across runs |
+| `event_type` | `NEW_LISTING`, `UPDATED` (version counter rose) or `STATUS_CHANGE` (e.g. OPEN → CLOSED) |
+| `scraped_at` | ISO-8601 UTC timestamp of this extraction |
+| `is_new` | `true` when this advertisement was never delivered by a previous run of this delta memory |
+| `source_url` | The advertisement's page on the portal |
+| `data_source` | Attribution string |
+
+**Advertisement identity & agency:**
+
+| Field | Description |
+| --- | --- |
+| `advertisementId` | Numeric portal ID |
+| `uniqueName` | Display ID, e.g. `AD-16672` |
+| `agencyAdNumber` | The agency's own reference |
+| `title` | Advertisement title |
+| `type` / `typeId` | Human-readable type / the `types` filter value (`"1"`–`"10"`) |
+| `status` | `OPEN`, `CLOSED`, `WITHDRAWN` or `PREVIEW` |
+| `agency` / `organizationId` / `organizationShortName` | Agency name, stable ID and short name (e.g. `FDOT`) |
+
+**Dates:**
+
+| Field | Description |
+| --- | --- |
+| `openDate` / `closeDate` | Raw portal timestamps |
+| `publishDateLocal` / `closeDateLocal` | Florida wall-clock strings with EST/EDT |
+| `responseWindowDays` | Whole days between open and close |
+| `daysUntilClose` | Negative once closed |
+
+**Amendments:**
+
+| Field | Description |
+| --- | --- |
+| `version` | The portal's amendment counter - rises on every agency edit; the delta engine's change key |
+| `isAmended` | `version > 1` |
+| `previousVersion` / `previousStatus` | Value at the previous delivery (`UPDATED` / `STATUS_CHANGE` events only) |
+| `isAwardNotice` | `type = Agency Decision` (starts the 72-hour protest window) |
+| `isSingleSource` | Non-competitive purchase notice |
+
+**Detail, commodity codes, documents, contact** (populated when `fetchDetail: true`):
+
+| Field | Description |
+| --- | --- |
+| `descriptionText` | Plain-text rendering of the portal's HTML description |
+| `commodityCodes` | UNSPSC codes with labels, as `{id, value}[]` |
+| `commodityCodeIds` | Same codes as a flat string array |
+| `documents` / `documentCount` | Attachments with direct download links and posting dates; addenda appear here with their title |
+| `responseContact` | Raw contact object from the portal |
+| `contactName` / `contactEmail` | Flattened contact fields |
+| `minorityEncouraged` / `preSolicitationConference` | The portal's own indicator flags |
+
+Output tab views in the Apify Console: Overview, Bid pipeline, Amendments & status changes, Awards & single source, Contacts - or export JSON, CSV or Excel.
 
 ## Reliability
 
@@ -156,58 +294,40 @@ Delta mode (`onlyNew: true`) is keyed on the portal's own `version` counter and 
 - **Rate handling**: the listing endpoint starts returning HTTP 429 above roughly 8 requests in flight, so default concurrency is 5 and 429s are retried with backoff rather than failing the run.
 - **Fail loud, not silent**: every response is validated for the expected JSON shape; if the portal changes in a way the parser doesn't recognise, the run fails instead of returning an empty "0 results, success" dataset.
 
-## Instant Terminal Run (cURL)
+## Contributing & Local Setup
 
-Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+This repository contains the Actor's real, buildable TypeScript source (`src/`) — there is no proprietary logic held back from GitHub. To work on it locally:
 
 ```bash
-curl -X POST "https://api.apify.com/v2/acts/afSZyXLVcgnLpucyo/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-  "maxItems": 50,
-  "onlyNew": true
-}'
+git clone https://github.com/stefanoseggio/florida-tenders-monitor.git
+cd florida-tenders-monitor
+npm install
+
+# Run against the real MyFloridaMarketPlace portal, Apify-CLI style:
+apify login          # one-time, needs an Apify account
+apify run             # runs src/main.ts via the Apify SDK's local dev flow
+
+# Or run the TypeScript entrypoint directly:
+npm run start:dev     # tsx src/main.ts
+
+# Build, lint and test before opening a PR:
+npm run build          # tsc
+npm run lint
+npm test               # vitest run (mocked fixtures)
+npm run test:live      # vitest run against the live portal (LIVE=1)
 ```
 
-## Sample Extracted Dataset (JSON)
+Source layout: `src/main.ts` (Actor entrypoint), `src/fetchTenders.ts` (listing walk + pagination), `src/api.ts` / `src/http.ts` (MFMP endpoint calls, retry/backoff), `src/normalize.ts` (raw-to-normalised field mapping), `src/parsers/` (portal response parsing), `src/state.ts` (delta key-value store), `src/input.ts` / `src/types.ts` (input validation and shared types). Real unit tests live in `test/`, with fixture-based coverage for parsing and delivery plus an opt-in `test:live` suite that hits the real portal.
 
-One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
-
-```json
-{
-  "record_id": "16861",
-  "event_type": "NEW_LISTING",
-  "scraped_at": "2026-09-08T08:20:11.402Z",
-  "is_new": true,
-  "source_url": "https://vendor.myfloridamarketplace.com/search/bids/detail/16861",
-  "uniqueName": "RFP-16861",
-  "agencyAdNumber": "DOT-RFP-27-9018-SJ",
-  "title": "Commercial Driver's License (CDL) Training and Testing Services",
-  "type": "Request for Proposals",
-  "status": "OPEN",
-  "agency": "Florida Department of Transportation (FDOT)",
-  "openDate": "2026-09-03T20:06:37.000+00:00",
-  "closeDate": "2026-09-21T14:00:00.000+00:00",
-  "responseWindowDays": 17,
-  "isAmended": false
-}
-```
-
-## Pricing (Pay-Per-Event)
-
-Pay per event (`PAY_PER_EVENT`) - platform usage is included, you pay only for delivered records, never for compute time:
-
-| Event                            | Title                        | Price                        | When it's charged                                                                              |
-| --------------------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `result`                          | Record (full detail)          | **$0.003** per advertisement  | A record delivered with full detail (description, commodity codes, documents, contact, 70+ fields) |
-| `result-summary`                  | Record (listing summary)      | **$0.001** per advertisement  | A listing-only record (`fetchDetail: false`, or a detail request that could not be completed)     |
-| Actor start                       | -                              | $0.00005                      | Once per run                                                                                     |
-
-Worked examples from these figures: the entire OPEN register (roughly 165 advertisements) with full detail costs about **$0.50**; a daily delta-mode monitor that turns up 8 new or amended advertisements costs about **$0.024/day** - under $1/month; a full CLOSED-register backfill of roughly 13,000 records costs about **$39** with detail or **$13** listing-only. A quiet monitoring run that finds nothing new costs only the Actor-start fee.
+Bug reports and feature requests are handled through the Apify Store **Issues** tab for this Actor (see [Support](#support--enterprise-sla) below) rather than GitHub Issues, since that is where paying users of the published Actor already are — but pull requests against this repository are welcome.
 
 ## Support & Enterprise SLA
 
 This Actor is built and maintained by an independent developer, not a vendor support team - there is no enterprise SLA on offer, and none is claimed here. Bug reports and feature requests are handled through the Apify Store **Issues** tab for this Actor, with a typical first response inside about 48 hours. Versioned changes are recorded in the Actor's Changelog tab so you can see exactly what shipped between runs.
+
+## License
+
+The source code in this repository is licensed under the [Apache License 2.0](./LICENSE).
 
 ---
 
