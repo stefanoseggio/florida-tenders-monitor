@@ -119,6 +119,67 @@ for (const item of items) {
 
 A full, runnable copy of this script lives at [`examples/run-actor.cjs`](./examples/run-actor.cjs) (CommonJS, `require`-based).
 
+## Use this from Claude Desktop, Cursor, or Windsurf (via MCP)
+
+This Actor is also reachable as a scoped MCP tool through Apify's own hosted `@apify/actors-mcp-server` at `https://mcp.apify.com`. The `?tools=` query string below scopes the connection to just **this one actor** (`stefano_seggio/florida-tenders-monitor`) — not the full Delta Registry fleet. For the full 28-actor closed-scope configuration, see [`MCP_INTEGRATION.md`](https://github.com/stefanoseggio/delta-registry-website/blob/main/MCP_INTEGRATION.md) in the `delta-registry-website` repo.
+
+### Claude Desktop
+
+Add to `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS). Claude Desktop connects through the `mcp-remote` stdio bridge, not a direct URL — and `mcp-remote` does **not** expand shell environment variables inside the JSON string, so paste your real token as a literal value below and keep this file out of version control:
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-florida-tenders-monitor": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.apify.com/?tools=stefano_seggio/florida-tenders-monitor",
+        "--header",
+        "Authorization: Bearer ${APIFY_TOKEN}"
+      ]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` (project-scoped) or `~/.cursor/mcp.json` (global). Cursor uses native HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-florida-tenders-monitor": {
+      "url": "https://mcp.apify.com/?tools=stefano_seggio/florida-tenders-monitor",
+      "headers": {
+        "Authorization": "Bearer ${APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`. Windsurf uses `serverUrl`, not `url` — and its `${env:...}` syntax genuinely does resolve from the environment (unlike Claude Desktop's `mcp-remote` bridge above):
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-florida-tenders-monitor": {
+      "serverUrl": "https://mcp.apify.com/?tools=stefano_seggio/florida-tenders-monitor",
+      "headers": {
+        "Authorization": "Bearer ${env:APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+In every config above, replace `${APIFY_TOKEN}` (Claude Desktop, Cursor) or set the `APIFY_TOKEN` environment variable (Windsurf's `${env:APIFY_TOKEN}`) with a real token from [Apify Console → Settings → Integrations](https://console.apify.com/settings/integrations).
+
 ## Input & Output Schema
 
 ### Input
@@ -158,6 +219,8 @@ Every filter below is applied server-side by MyFloridaMarketPlace's own search e
 | `maxItems` | integer | `100` | Cap on delivered records per run, and on cost. Maximum `50000` |
 | `fetchDetail` | boolean | `true` | One extra request per delivered record for description, commodity codes, documents, contact, response date, last-update timestamp, linked solicitation, indicator flags |
 | `maxConcurrency` | integer | `5` | Parallel listing-page / detail requests (1-10) |
+
+A legacy `dateRange` field (`24h` / `7d` / `30d`) is also accepted, kept only for tasks created before this table's filters existed — it is interpreted as `dateFrom`. It is hidden from the input UI and not recommended for new configurations; use `dateFrom` / `closesAfter` instead.
 
 ### Output
 
@@ -249,15 +312,19 @@ Field descriptions below (from [`.actor/dataset_schema.json`](./.actor/dataset_s
 | `type` / `typeId` | Human-readable type / the `types` filter value (`"1"`–`"10"`) |
 | `status` | `OPEN`, `CLOSED`, `WITHDRAWN` or `PREVIEW` |
 | `agency` / `organizationId` / `organizationShortName` | Agency name, stable ID and short name (e.g. `FDOT`) |
+| `organizationEntity` | The agency's entity code, e.g. `550000` |
 
 **Dates:**
 
 | Field | Description |
 | --- | --- |
-| `openDate` / `closeDate` | Raw portal timestamps |
-| `publishDateLocal` / `closeDateLocal` | Florida wall-clock strings with EST/EDT |
+| `openDate` / `closeDate` / `publishDate` | Raw portal timestamps |
+| `publishDateUtc` / `openDateUtc` / `closeDateUtc` | Canonical ISO-8601 UTC twins of the raw timestamps |
+| `publishDateLocal` / `openDateLocal` / `closeDateLocal` | Florida wall-clock strings with EST/EDT |
+| `publishDay` / `closeDay` | `YYYY-MM-DD` (UTC) day-only fields — the granularity of the portal's own date filter |
 | `responseWindowDays` | Whole days between open and close |
 | `daysUntilClose` | Negative once closed |
+| `isOpenForResponses` | `true` when `status` is `OPEN` and the close date is still in the future at scrape time |
 
 **Amendments:**
 
@@ -268,18 +335,29 @@ Field descriptions below (from [`.actor/dataset_schema.json`](./.actor/dataset_s
 | `previousVersion` / `previousStatus` | Value at the previous delivery (`UPDATED` / `STATUS_CHANGE` events only) |
 | `isAwardNotice` | `type = Agency Decision` (starts the 72-hour protest window) |
 | `isSingleSource` | Non-competitive purchase notice |
+| `withdrawn` | The portal's own withdrawn flag (observed `false` even on `WITHDRAWN` records — prefer `status`) |
 
 **Detail, commodity codes, documents, contact** (populated when `fetchDetail: true`):
 
 | Field | Description |
 | --- | --- |
-| `descriptionText` | Plain-text rendering of the portal's HTML description |
+| `detailFetched` / `detailError` | Whether the extra detail request succeeded; `detailError` is `NOT_FOUND` when the portal has no detail for the id, otherwise the failure message |
+| `description` / `descriptionText` | Raw HTML description from the portal, and a plain-text rendering of it |
+| `amountsUsd` / `maxAmountUsd` / `currency` | Every dollar figure found in the description text, the largest one, and the currency (`USD`) — the portal has no structured value field |
+| `lastUpdateDate` / `lastUpdateDateUtc` | When the agency last edited the advertisement (raw and UTC) — amendments do not change `publishDate` |
+| `responseDate` / `responseDateUtc` / `responseDateLocal` | Proposal/response due date, which can differ from `closeDate` (e.g. a grant RFA closing months after the application deadline) |
+| `linkedAdNumber` / `linkedAdUrl` | For an Agency Decision: the id and URL of the original solicitation being awarded |
+| `publishOption` | The portal's own publish-option label, e.g. `"Start Immediately"` |
+| `timeRemainingMs` | Milliseconds until `closeDate` as computed by the portal at fetch time (negative once closed) |
 | `commodityCodes` | UNSPSC codes with labels, as `{id, value}[]` |
 | `commodityCodeIds` | Same codes as a flat string array |
+| `commodityCodesText` | Same commodity codes as a single semicolon-joined string |
 | `documents` / `documentCount` | Attachments with direct download links and posting dates; addenda appear here with their title |
+| `latestDocumentDateUtc` | When the most recent attachment (typically the latest addendum) was posted |
 | `responseContact` | Raw contact object from the portal |
-| `contactName` / `contactEmail` | Flattened contact fields |
-| `minorityEncouraged` / `preSolicitationConference` | The portal's own indicator flags |
+| `contactName` / `contactEmail` / `contactPhone` / `contactAddress` / `contactCity` / `contactState` / `contactZip` | Flattened contact fields |
+| `indicators` | Raw object with `minorityEncouraged`, `preSolicitationConference`, `disabilitiesAct`, `rightToReject`, `agencyContactPeriod` |
+| `minorityEncouraged` / `preSolicitationConference` / `disabilitiesAct` / `rightToReject` / `agencyContactPeriod` | Flattened twins of the same indicator flags |
 
 Output tab views in the Apify Console: Overview, Bid pipeline, Amendments & status changes, Awards & single source, Contacts - or export JSON, CSV or Excel.
 
