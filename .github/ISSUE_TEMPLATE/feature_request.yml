@@ -1,0 +1,56 @@
+name: Feature Request
+description: Propose a new input field, output field, or filter
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the README's Input & Output Schema section — the field you
+        need may already exist (e.g. `agencyIds`, `commodityCodes`, `agencyNameContains`).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the real use case this would unblock, not just the feature itself.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What input field, output field, or behavior would you like to see added?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - New input filter
+        - New output field
+        - New agency / UNSPSC coverage
+        - Delta-engine / classification logic change
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Can this already be achieved with existing inputs (e.g. agencyIds, commodityCodes, agencyNameContains)? If so, why isn't that sufficient?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I confirmed this isn't already possible with an existing input field (see README → Input & Output Schema)
+          required: true
