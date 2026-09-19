@@ -1,6 +1,13 @@
 import { log } from 'apify';
+import { Impit, type RequestInit as ImpitRequestInit } from 'impit';
 
 export const BASE_URL = 'https://vendor.myfloridamarketplace.com';
+
+// One Impit instance per actor run: it holds the connection pool and TLS
+// session cache, and gives every request a real, internally-consistent
+// Chrome TLS/HTTP2 fingerprint instead of Node's native (and distinctively
+// bot-shaped) one - see AGENTS.md for why this was added.
+const impit = new Impit({ browser: 'chrome' });
 
 // CRITICAL, verified live 2026-09-04 and again 2026-09-07: every endpoint on
 // this host - GET or POST, JSON API or binary download - serves the Angular
@@ -63,7 +70,7 @@ export interface FetchOptions {
 const RATE_LIMIT_EXTRA_RETRIES = 4;
 const RATE_LIMIT_MAX_DELAY_MS = 60_000;
 
-function retryAfterMs(response: Response): number | null {
+function retryAfterMs(response: { headers: Headers }): number | null {
     const header = response.headers.get('retry-after');
     if (!header) return null;
     const seconds = Number(header);
@@ -103,7 +110,11 @@ export function absoluteUrl(path: string): string {
  * is not JSON (the SPA shell) throws NotJsonError - never retried, never
  * silently treated as "no results".
  */
-export async function requestJson(path: string, init: RequestInit = {}, options: FetchOptions = {}): Promise<unknown> {
+export async function requestJson(
+    path: string,
+    init: ImpitRequestInit = {},
+    options: FetchOptions = {},
+): Promise<unknown> {
     const { maxRetries, baseDelayMs, rateLimitBaseDelayMs, timeoutMs } = { ...DEFAULTS, ...options };
     const url = absoluteUrl(path);
     let lastError: Error = new Error('unreachable');
@@ -114,7 +125,7 @@ export async function requestJson(path: string, init: RequestInit = {}, options:
         rateLimited = false;
         waitHint = null;
         try {
-            const response = await fetch(url, {
+            const response = await impit.fetch(url, {
                 ...init,
                 headers: { ...JSON_HEADERS, ...(init.headers as Record<string, string> | undefined) },
                 redirect: 'follow',

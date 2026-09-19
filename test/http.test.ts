@@ -16,8 +16,21 @@ function response(status: number, body: string, contentType: string | null): Res
     });
 }
 
-const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>();
-vi.stubGlobal('fetch', fetchMock);
+// impit's Impit.fetch() is a native binding, not built on the global `fetch` -
+// vi.stubGlobal('fetch', ...) never intercepts it. Mock the `impit` module
+// itself instead, so `new Impit()` in src/http.ts returns an object whose
+// `.fetch` is this mock. vi.hoisted() is required because vi.mock() factories
+// run before the top-level `const` below would otherwise be initialized.
+const { fetchMock } = vi.hoisted(() => ({
+    fetchMock: vi.fn<(url: string, init: RequestInit) => Promise<Response>>(),
+}));
+vi.mock('impit', () => ({
+    // Must be a real `function`, not an arrow function - `new Impit(...)` in
+    // src/http.ts requires a constructible mock implementation.
+    Impit: vi.fn().mockImplementation(function ImpitMock() {
+        return { fetch: fetchMock };
+    }),
+}));
 const FAST = { baseDelayMs: 1, maxRetries: 2 };
 
 describe('requestJson', () => {
