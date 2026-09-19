@@ -195,6 +195,30 @@ lastRunAt, filtersSignature }`), 50k prune (lowest ids first).
   persist -> summary. Never pushes anything but records; fails the run on
   error (`Actor.fail`), so alerts fire.
 
+## HTTP transport: `impit`, not the native `fetch`
+
+`src/http.ts` makes requests via a module-level `Impit` instance
+(`new Impit({ browser: 'chrome' })`, from the `impit` package), not the
+global `fetch`. This gives every request a real, internally-consistent
+Chrome TLS/HTTP2 fingerprint instead of Node's native one - added
+2026-09-19 as a fleet-wide TLS-fingerprint-hardening pilot (Node's own
+`fetch` is not itself deprecated; this is proactive hardening, not a bug
+fix). Two things to know if you touch this file again:
+- **`impit`'s own `RequestInit` type is narrower than the DOM's** - its
+  `method` field is a fixed `HttpMethod` union, not `string`. `requestJson`
+  is typed against `RequestInit as ImpitRequestInit` from `'impit'` for
+  this reason; don't revert that import to the global DOM type without
+  re-checking `tsc` passes.
+- **`Impit.fetch()` is a native binding, not built on the global `fetch`.**
+  `vi.stubGlobal('fetch', ...)` will NOT intercept it - it does nothing and
+  the real network call goes out, which is exactly what broke 5 tests when
+  this was first added (they silently started hitting the live MFMP portal
+  instead of the mock). `test/http.test.ts` mocks the `impit` module itself
+  instead (`vi.mock('impit', ...)`, with `vi.hoisted()` for the mock
+  function reference, and a real `function` - not an arrow function - as
+  the mock's `Impit` implementation, since `new Impit(...)` requires a
+  constructible mock). Keep that pattern if this file's tests are extended.
+
 ## Delta engine invariants (do not break these)
 
 1. **State is written only for delivered records** (`markSeen` after a
