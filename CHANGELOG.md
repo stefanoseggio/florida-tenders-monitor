@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1 - 2026-09-19
+
+### Fixed
+
+- **Full-mode records mislabelled `NEW_LISTING` from the second run onward.** `classify()`'s final fallback branch - reached whenever a known advertisement's `version` and `status` both still match the delta memory - returned `eventType: 'NEW_LISTING'` even though `isNew`/`changed` were both `false`. In delta mode (`onlyNew: true`) this was invisible because `walkListing` excludes unchanged rows before delivery, but a full (`onlyNew: false`, the default) run delivers every matching advertisement on every run, so every already-seen, unmodified record was re-labelled `NEW_LISTING` in the dataset from the second scheduled run onward - contradicting `is_new: false` on the very same record. `classify()` now returns a real `UNCHANGED` event type for this case; `EventType`, the dataset schema, the `eventTypes` input filter (now defaulting to all four values, so a full run keeps delivering everything as documented) and the README were updated to match. Delta mode's exclusion behaviour is unchanged.
+
 ## 2.0.0 - 2026-09-08
 
 The "institutional-grade" release: same envelope and field names, far more data, every server-side filter the portal supports, and a delta engine that finally sees addenda and awards.

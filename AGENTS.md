@@ -207,9 +207,14 @@ lastRunAt, filtersSignature }`), 50k prune (lowest ids first).
    exactly the rows the next walk ranks first. The dataset is an
    append-only log; views and README say `desc=true`.
 3. **No early-stop.** Every page is walked every run (see Ordering).
-   `classify()` decides NEW_LISTING / UPDATED / STATUS_CHANGE from the
-   listing row alone; detail is fetched only for candidates that will be
-   delivered.
+   `classify()` decides NEW_LISTING / UPDATED / STATUS_CHANGE / UNCHANGED from
+   the listing row alone; detail is fetched only for candidates that will be
+   delivered. UNCHANGED (version and status both match the seen entry) is a
+   real, delivered event type on a full (`onlyNew: false`) run - it must
+   never fall back to NEW_LISTING (2.0.1 regression: it did, contradicting
+   `is_new: false` on the same record). Delta mode never delivers it:
+   `walkListing` excludes it as `'unchanged'` before `classify()`'s result
+   would otherwise reach the dataset.
 4. A COLD delta run (empty store, no `lastRunAt`) cut short by `maxItems`
    defines the **baseline**: `state.baselineFloor` = `publishDateUtc` of the
    oldest NEW row in the delivered block. On later runs an unseen row

@@ -7,8 +7,15 @@ export type AdStatus = 'OPEN' | 'CLOSED' | 'WITHDRAWN' | 'PREVIEW';
  * STATUS_CHANGE - a known advertisement whose status differs from the one
  *           stored (OPEN -> CLOSED / WITHDRAWN) - only visible when the new
  *           status is part of the walked `statuses`.
+ * UNCHANGED - a known advertisement whose `version` and `status` still match
+ *           what this delta memory last delivered. `classify()` returns this
+ *           for every mode, but delta mode (`onlyNew: true`) excludes it from
+ *           delivery before it is ever charged (`walkListing`'s `unchanged`
+ *           exclusion in fetchTenders.ts) - it only reaches the dataset on a
+ *           `onlyNew: false` ("full") run, which delivers every matching
+ *           advertisement on every run by design.
  */
-export type EventType = 'NEW_LISTING' | 'UPDATED' | 'STATUS_CHANGE';
+export type EventType = 'NEW_LISTING' | 'UPDATED' | 'STATUS_CHANGE' | 'UNCHANGED';
 
 /** Legacy v1 preset, still honoured and mapped onto `dateFrom`. */
 export type DateRangePreset = '24h' | '7d' | '30d';

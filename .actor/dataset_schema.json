@@ -15,8 +15,8 @@
             "event_type": {
                 "type": "string",
                 "title": "Event type",
-                "description": "NEW_LISTING, UPDATED (version counter rose: addendum, extension, new document) or STATUS_CHANGE (e.g. OPEN -> CLOSED).",
-                "enum": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE"]
+                "description": "NEW_LISTING, UPDATED (version counter rose: addendum, extension, new document), STATUS_CHANGE (e.g. OPEN -> CLOSED) or UNCHANGED (version and status both unchanged since the last delivery - only ever seen on a full, onlyNew:false run; delta mode never delivers these).",
+                "enum": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE", "UNCHANGED"]
             },
             "scraped_at": {
                 "type": "string",

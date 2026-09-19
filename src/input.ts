@@ -25,7 +25,11 @@ export interface ResolvedInput {
     filtersSignature: string;
 }
 
-const ALL_EVENT_TYPES: EventType[] = ['NEW_LISTING', 'UPDATED', 'STATUS_CHANGE'];
+// UNCHANGED is included so a default (unfiltered) full run keeps delivering
+// every matching advertisement, as documented - it would otherwise vanish
+// through this same eventTypes filter instead of through the (delta-only)
+// 'unchanged' exclusion in walkListing.
+const ALL_EVENT_TYPES: EventType[] = ['NEW_LISTING', 'UPDATED', 'STATUS_CHANGE', 'UNCHANGED'];
 
 // The whole register is ~13,600 advertisements (OPEN 164 + CLOSED 13,027 +
 // WITHDRAWN 421 on 2026-09-07); 50,000 leaves years of headroom.

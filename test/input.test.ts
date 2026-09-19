@@ -46,7 +46,7 @@ describe('resolveInput', () => {
             dateTo: null,
             agencyNameContains: null,
         });
-        expect([...r.options.eventTypes].sort()).toEqual(['NEW_LISTING', 'STATUS_CHANGE', 'UPDATED']);
+        expect([...r.options.eventTypes].sort()).toEqual(['NEW_LISTING', 'STATUS_CHANGE', 'UNCHANGED', 'UPDATED']);
         expect(r.options.deltaStateName).toMatch(/^auto-[0-9a-f]{8}$/);
     });
 
