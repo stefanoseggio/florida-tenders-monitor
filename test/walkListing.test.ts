@@ -40,7 +40,7 @@ const FILTERS: SearchFilters = {
     endDate: null,
     commodityCodes: [],
 };
-const ALL_EVENTS = new Set(['NEW_LISTING', 'UPDATED', 'STATUS_CHANGE'] as const);
+const ALL_EVENTS = new Set(['NEW_LISTING', 'UPDATED', 'STATUS_CHANGE', 'UNCHANGED'] as const);
 const NOW = new Date('2026-09-08T02:00:00.000Z');
 
 /** Serve `count` from /count and the given pages from /bids (anything past the end -> []). */
@@ -93,6 +93,32 @@ describe('walkListing against real captured pages', () => {
         );
         // /count + 2 pages, nothing else
         expect(postJsonMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('full (onlyNew: false) run: a previously-seen, unchanged record is delivered as UNCHANGED, not re-labelled NEW_LISTING (2.0.1 regression)', async () => {
+        serve(164, PAGE1, PAGE2);
+        // Warm seen-state whose version/status already match this live row exactly.
+        const target = ALL[0];
+        const seen: Record<string, SeenEntry> = {
+            [String(target.advertisementId)]: { version: target.version, status: target.status, updatedAt: null },
+        };
+        const result = await walk({ seen }); // onlyNew defaults to false in walk()
+
+        // Full mode is not a delta: the row is still delivered (not excluded) on every run...
+        expect(result.excluded).toEqual([]);
+        expect(result.candidates).toHaveLength(164);
+        const candidate = result.candidates.find((c) => c.item.advertisementId === target.advertisementId)!;
+        // ...but correctly labelled UNCHANGED, consistent with isNew/changed, instead of NEW_LISTING.
+        expect(candidate.eventType).toBe('UNCHANGED');
+        expect(candidate.isNew).toBe(false);
+        expect(candidate.changed).toBe(false);
+        expect(candidate.previous).toEqual({ version: target.version, status: target.status, updatedAt: null });
+        // Every genuinely never-seen row in the same run is unaffected.
+        expect(
+            result.candidates
+                .filter((c) => c.item.advertisementId !== target.advertisementId)
+                .every((c) => c.eventType === 'NEW_LISTING' && c.isNew),
+        ).toBe(true);
     });
 
     it('keeps paging past the count when the listing grew between /count and the page fetches', async () => {

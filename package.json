@@ -1,6 +1,6 @@
 {
     "name": "florida-tenders-monitor",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "module",
     "description": "MyFloridaMarketPlace Bids Scraper & Monitor: scrape and monitor every Florida state-agency solicitation on the MFMP Vendor Information Portal (ITB, RFP, ITN, RFI, RSQ, single source, intent-to-award / agency decisions, grant opportunities) with server-side filters, delta mode (new / amended / status-changed), UNSPSC codes, contacts, document links and normalised dates.",
     "engines": {

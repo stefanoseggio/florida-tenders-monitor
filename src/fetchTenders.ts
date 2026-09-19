@@ -74,7 +74,11 @@ export function classify(
     if (previous.version !== null && typeof item.version === 'number' && item.version > previous.version) {
         return { eventType: 'UPDATED', isNew: false, changed: true };
     }
-    return { eventType: 'NEW_LISTING', isNew: false, changed: false };
+    // A known advertisement whose version and status both still match what
+    // was last delivered. In delta mode `walkListing` excludes this before
+    // delivery ('unchanged'); a full (onlyNew: false) run delivers it labelled
+    // UNCHANGED instead of mislabelling it NEW_LISTING (was the bug here).
+    return { eventType: 'UNCHANGED', isNew: false, changed: false };
 }
 
 /**

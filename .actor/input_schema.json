@@ -121,14 +121,19 @@
         "eventTypes": {
             "title": "Event types to deliver",
             "type": "array",
-            "description": "NEW_LISTING = an advertisement never delivered before; UPDATED = a known advertisement whose version counter rose (addendum, Q&A, close-date extension, new document); STATUS_CHANGE = a known advertisement whose status changed (e.g. OPEN -> CLOSED; only visible if that status is in 'Statuses').",
+            "description": "NEW_LISTING = an advertisement never delivered before; UPDATED = a known advertisement whose version counter rose (addendum, Q&A, close-date extension, new document); STATUS_CHANGE = a known advertisement whose status changed (e.g. OPEN -> CLOSED; only visible if that status is in 'Statuses'); UNCHANGED = a known advertisement whose version and status have not changed (only ever delivered on a full run - 'Only new' always suppresses these before delivery).",
             "editor": "select",
             "items": {
                 "type": "string",
-                "enum": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE"],
-                "enumTitles": ["New advertisements", "Amendments to known advertisements", "Status changes"]
+                "enum": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE", "UNCHANGED"],
+                "enumTitles": [
+                    "New advertisements",
+                    "Amendments to known advertisements",
+                    "Status changes",
+                    "Unchanged (full runs only)"
+                ]
             },
-            "default": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE"]
+            "default": ["NEW_LISTING", "UPDATED", "STATUS_CHANGE", "UNCHANGED"]
         },
         "onlyNew": {
             "sectionCaption": "Monitoring (delta mode)",

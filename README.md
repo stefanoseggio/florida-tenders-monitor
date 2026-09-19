@@ -31,7 +31,7 @@ Pay per event (`PAY_PER_EVENT`) - platform usage is included, you pay only for d
 | `result-summary` | Record (listing summary) | **$0.001** per advertisement | A listing-only record (`fetchDetail: false`, or a detail request that could not be completed) |
 | Actor start | — | $0.00005 | Once per run |
 
-**Unchanged records are never billed.** Delta mode is keyed on the portal's own `version` counter and `status` field, not a generic timestamp: a record whose `version` and `status` still match what this Actor delivered on a previous run is treated as unchanged and is suppressed before delivery — it never reaches the dataset and is never charged. Only a record that is genuinely new, whose `version` rose (an addendum, Q&A, or close-date extension), or whose `status` flipped, is delivered and billed.
+**In delta mode, unchanged records are never billed.** Delta mode (`onlyNew: true`) is keyed on the portal's own `version` counter and `status` field, not a generic timestamp: a record whose `version` and `status` still match what this Actor delivered on a previous run is treated as unchanged and is suppressed before delivery — it never reaches the dataset and is never charged. Only a record that is genuinely new, whose `version` rose (an addendum, Q&A, or close-date extension), or whose `status` flipped, is delivered and billed. A full (`onlyNew: false`, the default) run has no such suppression by design — it re-delivers every advertisement matching your filters on every run (see the OPEN-register and CLOSED-backfill examples below), labelling any of them that has not actually changed since the previous run as `event_type: "UNCHANGED"` rather than misreporting it as new.
 
 Worked examples from these figures: the entire OPEN register (roughly 165 advertisements) with full detail costs about **$0.50**; a daily delta-mode monitor that turns up 8 new or amended advertisements costs about **$0.024/day** - under $1/month; a full CLOSED-register backfill of roughly 13,000 records costs about **$39** with detail or **$13** listing-only. A quiet monitoring run that finds nothing new costs only the Actor-start fee.
 
@@ -212,7 +212,7 @@ Every filter below is applied server-side by MyFloridaMarketPlace's own search e
 | `dateFrom`, `dateTo` | string | - | Publish window, absolute (`2026-09-01`) or relative (`7 days`). Amendments keep the original publish date |
 | `openBefore` | string | - | Only advertisements whose open date is on or before this day |
 | `closesAfter` | string | - | Only advertisements whose close date is on or after this day (`0 days` = still open today) |
-| `eventTypes` | string[] | all three | Which of `NEW_LISTING`, `UPDATED`, `STATUS_CHANGE` to deliver |
+| `eventTypes` | string[] | all four | Which of `NEW_LISTING`, `UPDATED`, `STATUS_CHANGE`, `UNCHANGED` to deliver. `UNCHANGED` only ever appears on a full (`onlyNew: false`) run - delta mode always suppresses unchanged records before delivery, regardless of this filter |
 | `onlyNew` | boolean | `false` | Delta mode - see Reliability below |
 | `deltaStateName` | string | fingerprint of the filters | Name of the delta memory; share it between tasks on purpose, never by accident |
 | `resetState` | boolean | `false` | Forget delivered advertisements and re-baseline |
@@ -295,7 +295,7 @@ Field descriptions below (from [`.actor/dataset_schema.json`](./.actor/dataset_s
 | Field | Description |
 | --- | --- |
 | `record_id` | `advertisementId` as a string - stable across runs |
-| `event_type` | `NEW_LISTING`, `UPDATED` (version counter rose) or `STATUS_CHANGE` (e.g. OPEN → CLOSED) |
+| `event_type` | `NEW_LISTING`, `UPDATED` (version counter rose), `STATUS_CHANGE` (e.g. OPEN → CLOSED), or `UNCHANGED` (version and status both match the previous delivery - only possible on a full, `onlyNew: false` run) |
 | `scraped_at` | ISO-8601 UTC timestamp of this extraction |
 | `is_new` | `true` when this advertisement was never delivered by a previous run of this delta memory |
 | `source_url` | The advertisement's page on the portal |
@@ -367,6 +367,7 @@ Delta mode (`onlyNew: true`) is keyed on the portal's own `version` counter and 
 
 - **Baseline run**: the first run with `onlyNew: true` delivers up to `maxItems` of the most recently published matching advertisements and remembers each one's `advertisementId`, `version` and `status` in a private, named key-value store (`florida-tenders-monitor-state-<deltaStateName>`). A small `maxItems` on that first run keeps the baseline cheap; anything older is treated as history.
 - **Later runs**: every run re-reads the full listing for your filters (MFMP has no timestamp sort), then delivers only rows that are unknown (`NEW_LISTING`), whose `version` rose (`UPDATED`) or whose `status` flipped (`STATUS_CHANGE`). Detail is fetched only for rows that will actually be delivered.
+- **Full runs (`onlyNew: false`, the default) are not a delta**: every advertisement matching your filters is delivered on every run, including ones that have not changed since the last run - those are labelled `event_type: "UNCHANGED"` (`is_new: false`) rather than `NEW_LISTING`, so the field is never a false signal of a new posting.
 - **Crash-safe delivery**: memory is written only for records that were actually stored in the dataset, and records are appended oldest-first within a run, so a spending limit, timeout or platform migration mid-run never loses an advertisement - the next run simply picks up where delivery stopped. Anything that overflows `maxItems` is logged as a backlog and re-discovered automatically on the next run.
 - **Isolated or shared memory**: different filter combinations get separate delta memories automatically (fingerprinted from your input); set `deltaStateName` to share one memory across tasks on purpose, or `resetState: true` to force a fresh baseline.
 - **Rate handling**: the listing endpoint starts returning HTTP 429 above roughly 8 requests in flight, so default concurrency is 5 and 429s are retried with backoff rather than failing the run.
