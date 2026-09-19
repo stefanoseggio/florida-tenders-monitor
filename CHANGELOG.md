@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.0.0](https://github.com/stefanoseggio/florida-tenders-monitor/compare/florida-tenders-monitor-v2.0.0...florida-tenders-monitor-v3.0.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* v2.0.0 - server-side filters, version-keyed delta engine, normalised fields, PPE result/result-summary
+
+### Features
+
+* Florida Tenders Monitor - MFMP clean JSON API, no auth, no proxy ([3b69e4b](https://github.com/stefanoseggio/florida-tenders-monitor/commit/3b69e4b7ea9aab923e86395a2de991946632366c))
+* retrofit Delta Engine (onlyNew/dateRange + B2B envelope) ([19edffd](https://github.com/stefanoseggio/florida-tenders-monitor/commit/19edffd90f17e0afde8eeb7851c5601d275dc211))
+* v2.0.0 - server-side filters, version-keyed delta engine, normalised fields, PPE result/result-summary ([a54c468](https://github.com/stefanoseggio/florida-tenders-monitor/commit/a54c468aabb612cb040f6d9be1c5fc5d4f183b84))
+
+
+### Bug Fixes
+
+* 429-aware backoff, retry transient detail failures next run, canonical statuses order, contacts view link, truthful rate-limit docs ([3c8a762](https://github.com/stefanoseggio/florida-tenders-monitor/commit/3c8a7625b2b1771925997c04548e8df7827ec659))
+* **ci:** pass RELEASE_PLEASE_TOKEN so release PRs skip the bot-approval gate ([b2c62da](https://github.com/stefanoseggio/florida-tenders-monitor/commit/b2c62da51f2a94db5918e33352e2f4ae1130a6ff))
+* stop mislabelling unchanged full-mode records as NEW_LISTING ([#9](https://github.com/stefanoseggio/florida-tenders-monitor/issues/9)) ([df3ee6a](https://github.com/stefanoseggio/florida-tenders-monitor/commit/df3ee6a3939a3bf02bb4146a427db3b4d0c0b2ce))
+
 ## 2.0.1 - 2026-09-19
 
 ### Fixed
